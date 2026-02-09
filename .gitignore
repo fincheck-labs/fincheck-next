@@ -1,0 +1,57 @@
+################################
+# Node / Next.js
+################################
+node_modules/
+.next/
+next/
+out/
+
+################################
+# Environment variables
+################################
+.env
+.env.*
+!.env.example
+
+################################
+# Python
+################################
+backend/venv/
+fintech-backend/venv/
+backend/__pycache__/
+fintech-backend/__pycache__/
+**/__pycache__/
+*.pyc
+
+################################
+# Datasets
+################################
+data/
+**/data/
+cifar-10-python.tar.gz
+
+################################
+# Uploads
+################################
+public/uploads/
+
+################################
+# OS files
+################################
+.DS_Store
+
+################################
+# Model checkpoints (DEFAULT: IGNORE)
+################################
+*.pth
+
+################################
+# Backend model folders (DEFAULT: IGNORE)
+################################
+backend/model/
+
+################################
+# ✅ EXCEPTION: ALLOW EMNIST MODELS
+################################
+!fintech-backend/models/emnist_pth/
+!fintech-backend/models/emnist_pth/*.pth
