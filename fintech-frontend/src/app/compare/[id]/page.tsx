@@ -1,8 +1,14 @@
+
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
+import useSWR from "swr"
+
+/* ================= FETCHER ================= */
+
+const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 /* ================= CONSTANTS ================= */
 
@@ -24,22 +30,16 @@ const MODEL_LABELS: Record<string, string> = {
   ws: "Weight Sharing",
 }
 
-/* ================= TAILWIND SAFE COLOR MAP ================= */
-
 const COLOR = {
   emerald: {
     bar: "bg-gradient-to-r from-emerald-500 to-emerald-600",
     dot: "bg-emerald-500",
     border: "border-emerald-200",
-    glow: "from-emerald-500 to-emerald-600",
-    badge: "bg-emerald-100 text-emerald-800",
   },
   blue: {
     bar: "bg-gradient-to-r from-blue-500 to-blue-600",
     dot: "bg-blue-500",
     border: "border-blue-200",
-    glow: "from-blue-500 to-blue-600",
-    badge: "bg-blue-100 text-blue-800",
   },
 } as const
 
@@ -88,15 +88,14 @@ export default function ComparePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
 
-  const [doc, setDoc] = useState<ResultDoc | null>(null)
-  const [loading, setLoading] = useState(true)
+  /* ================= SWR FETCH ================= */
 
-  useEffect(() => {
-    fetch(`/api/results/${id}`)
-      .then(r => r.json())
-      .then(setDoc)
-      .finally(() => setLoading(false))
-  }, [id])
+  const { data: doc, error, isLoading } = useSWR<ResultDoc>(
+    id ? `/api/results/${id}` : null,
+    fetcher
+  )
+
+  /* ================= ROWS ================= */
 
   const rows = useMemo<CompareRow[]>(() => {
     if (!doc?.data?.MNIST || !doc?.data?.CIFAR) return []
@@ -121,26 +120,29 @@ export default function ComparePage() {
           risk: cf.evaluation?.risk_score ?? 1,
         },
         delta: {
-          conf: cf.confidence_percent - mn.confidence_percent,
-          lat: cf.latency_ms - mn.latency_ms,
-          risk: cf.evaluation?.risk_score - mn.evaluation?.risk_score,
+          conf: (cf.confidence_percent ?? 0) - (mn.confidence_percent ?? 0),
+          lat: (cf.latency_ms ?? 0) - (mn.latency_ms ?? 0),
+          risk:
+            (cf.evaluation?.risk_score ?? 0) -
+            (mn.evaluation?.risk_score ?? 0),
         },
       }
     }).filter(Boolean) as CompareRow[]
   }, [doc])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-14 h-14 border-4 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
-      </div>
-    )
-  }
-
   /* ================= DATASET SUMMARY ================= */
 
   const datasetSummary = useMemo(() => {
-    const avg = (n: number[]) => n.reduce((a, b) => a + b, 0) / n.length
+    if (!rows.length) {
+      return {
+        mnist: { conf: 0, lat: 0, risk: 0 },
+        cifar: { conf: 0, lat: 0, risk: 0 },
+        winner: "MNIST",
+      }
+    }
+
+    const avg = (n: number[]) =>
+      n.length ? n.reduce((a, b) => a + b, 0) / n.length : 0
 
     const mnist = {
       conf: avg(rows.map(r => r.mnist.conf)),
@@ -167,13 +169,28 @@ export default function ComparePage() {
       ? datasetSummary.mnist
       : datasetSummary.cifar
 
+  /* ================= STATES ================= */
+
+  if (isLoading)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-14 h-14 border-4 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
+      </div>
+    )
+
+  if (error)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Failed to load data
+      </div>
+    )
+
   /* ================= UI ================= */
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-100 p-10">
       <div className="max-w-7xl mx-auto space-y-16">
 
-        {/* HEADER */}
         <div className="flex justify-between items-center">
           <h1 className="text-5xl font-black">MNIST vs CIFAR</h1>
           <button
@@ -184,7 +201,6 @@ export default function ComparePage() {
           </button>
         </div>
 
-        {/* DATASET WINNER */}
         <div
           className={`p-8 rounded-3xl border-4 shadow-xl ${
             datasetSummary.winner === "MNIST"
@@ -193,25 +209,19 @@ export default function ComparePage() {
           }`}
         >
           <h2 className="text-2xl font-bold mb-2">🏆 Dataset Winner</h2>
-          <p className="text-4xl font-black mb-4">
-            {datasetSummary.winner}
-          </p>
-          <ul className="text-sm space-y-1">
+          <p className="text-4xl font-black">{datasetSummary.winner}</p>
+          <ul className="text-sm">
             <li>Accuracy: {winnerMetrics.conf.toFixed(2)}%</li>
             <li>Latency: {winnerMetrics.lat.toFixed(2)} ms</li>
             <li>Risk: {winnerMetrics.risk.toFixed(4)}</li>
           </ul>
         </div>
 
-        {/* MODEL CARDS */}
         <div className="grid gap-10">
           {rows.map(r => (
             <div key={r.key} className="bg-white rounded-3xl shadow-xl">
               <div className="p-6 border-b">
                 <h3 className="text-2xl font-bold">{r.label}</h3>
-                <p className="text-sm text-gray-500">
-                  Same architecture · dataset generalization
-                </p>
               </div>
 
               <div className="p-8 grid md:grid-cols-3 gap-6">
@@ -222,7 +232,6 @@ export default function ComparePage() {
             </div>
           ))}
         </div>
-
       </div>
     </div>
   )
@@ -241,10 +250,7 @@ function MetricCard({
 }) {
   return (
     <div className={`rounded-2xl p-6 border ${COLOR[color].border}`}>
-      <h4 className="font-bold mb-4 flex items-center gap-2">
-        <span className={`w-2 h-2 rounded-full ${COLOR[color].dot}`} />
-        {title}
-      </h4>
+      <h4 className="font-bold mb-4">{title}</h4>
       <MetricBar label="Accuracy" value={data.conf} max={100} color={color} />
       <MetricBar label="Latency" value={data.lat} max={500} color={color} />
       <MetricBar label="Risk" value={data.risk} max={1} color={color} />
@@ -267,9 +273,9 @@ function MetricBar({
 
   return (
     <div className="mb-3">
-      <div className="flex justify-between text-sm mb-1">
+      <div className="flex justify-between text-sm">
         <span>{label}</span>
-        <span className="font-mono">{value.toFixed(2)}</span>
+        <span>{value.toFixed(2)}</span>
       </div>
       <div className="h-2 bg-gray-200 rounded-full">
         <motion.div
@@ -285,7 +291,7 @@ function MetricBar({
 function DeltaCard({ delta }: { delta: Metrics }) {
   return (
     <div className="rounded-2xl p-6 border-2 border-dashed border-gray-300">
-      <h4 className="font-bold text-center mb-4">Δ CIFAR − MNIST</h4>
+      <h4 className="font-bold mb-4">Δ CIFAR − MNIST</h4>
       <DeltaRow label="Accuracy" v={delta.conf} />
       <DeltaRow label="Latency" v={delta.lat} inverse />
       <DeltaRow label="Risk" v={delta.risk} inverse />
@@ -307,7 +313,7 @@ function DeltaRow({
       <span>
         {deltaIcon(v, inverse)} {label}
       </span>
-      <span className="font-mono">{v.toFixed(3)}</span>
+      <span>{v.toFixed(3)}</span>
     </div>
   )
 }
