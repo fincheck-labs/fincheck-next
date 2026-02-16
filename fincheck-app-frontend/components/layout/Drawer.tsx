@@ -8,7 +8,7 @@ import {
   Dimensions,
   Pressable,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname, Href } from 'expo-router';
 import { ThemedText } from '@/components/ui/ThemedText';
 import { ThemedView } from '@/components/ui/ThemedView';
 import { useTheme } from '@/hooks/useTheme';
@@ -30,15 +30,17 @@ interface NavItem {
 
 export function Drawer({ visible, onClose, onThemeToggle }: DrawerProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { colors, isDark } = useTheme();
   const slideAnim = React.useRef(new Animated.Value(DRAWER_WIDTH)).current;
 
   const navigationItems: NavItem[] = [
     { title: 'Home', route: '/', description: 'Project overview' },
-    { title: 'Upload', route: '/upload', description: 'Upload your data' },
-    { title: 'Results', route: '/results', description: 'View all results' },
-    { title: 'Digit Verify', route: '/digit-verify', description: 'Verify digits' },
-    { title: 'Cheque Processing', route: '/cheque', description: 'Process cheques' },
+    { title: 'Upload', route: '/upload/', description: 'Upload your data' },
+    { title: 'Results', route: '/results/', description: 'View all results' },
+    { title: 'Digit Verify', route: '/digit-verify/', description: 'Verify digits' },
+    { title: 'Image Verify', route: '/banking-demo/', description: 'Banking features' },
+    { title: 'Cheque Processing', route: '/cheque/', description: 'Process cheques' },
   ];
 
   React.useEffect(() => {
@@ -58,10 +60,27 @@ export function Drawer({ visible, onClose, onThemeToggle }: DrawerProps) {
   }, [visible]);
 
   const handleNavigate = (route: string) => {
+    console.log('🔹 Navigation requested to:', route);
+    console.log('🔹 Current pathname:', pathname);
+    
     onClose();
+    
+    // Small delay to let drawer close
     setTimeout(() => {
-      router.push(route as any);
-    }, 300);
+      try {
+        // For home route, use push to ensure it works
+        if (route === '/') {
+          console.log('🏠 Navigating to home...');
+          router.push('/(tabs)' as Href);
+        } else {
+          console.log('📄 Navigating to:', route);
+          router.push(route as Href);
+        }
+        console.log('✅ Navigation initiated successfully');
+      } catch (error) {
+        console.error('❌ Navigation error:', error);
+      }
+    }, 350); // Slightly longer delay
   };
 
   return (
@@ -95,29 +114,42 @@ export function Drawer({ visible, onClose, onThemeToggle }: DrawerProps) {
 
           {/* Navigation Items */}
           <View style={styles.navItems}>
-            {navigationItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.navItem,
-                  { borderBottomColor: colors.border },
-                ]}
-                onPress={() => handleNavigate(item.route)}
-                activeOpacity={0.7}
-              >
-                <View>
-                  <ThemedText style={styles.navTitle}>{item.title}</ThemedText>
-                  {item.description && (
-                    <ThemedText style={[styles.navDescription, { opacity: 0.6 }]}>
-                      {item.description}
+            {navigationItems.map((item, index) => {
+              const isActive = pathname === item.route || 
+                               (item.route !== '/' && pathname.startsWith(item.route));
+              
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.navItem,
+                    { 
+                      borderBottomColor: colors.border,
+                      backgroundColor: isActive ? colors.primary + '10' : 'transparent',
+                    },
+                  ]}
+                  onPress={() => handleNavigate(item.route)}
+                  activeOpacity={0.7}
+                >
+                  <View>
+                    <ThemedText style={[
+                      styles.navTitle,
+                      isActive && { color: colors.primary, fontWeight: '700' }
+                    ]}>
+                      {item.title}
                     </ThemedText>
-                  )}
-                </View>
-                <ThemedText style={[styles.navArrow, { color: colors.primary }]}>
-                  →
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
+                    {item.description && (
+                      <ThemedText style={[styles.navDescription, { opacity: 0.6 }]}>
+                        {item.description}
+                      </ThemedText>
+                    )}
+                  </View>
+                  <ThemedText style={[styles.navArrow, { color: colors.primary }]}>
+                    →
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* Theme Toggle */}
