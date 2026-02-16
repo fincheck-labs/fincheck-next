@@ -47,6 +47,7 @@ def get_easyocr_reader():
 import io
 from torchvision.datasets import CIFAR10
 from model_def import CIFARCNN
+import torch.quantization as quant
 
 
 
@@ -232,31 +233,32 @@ def startup_event():
 
 def load_models():
     MNIST_MODELS.clear()
+    CIFAR_MODELS.clear()
 
+    # ---------- MNIST ----------
     for f in MODEL_FILES:
-        model_path = MODEL_DIR / f
-
-        if not model_path.exists():
-            raise RuntimeError(f"❌ Model file missing: {f}")
-
+        path = MODEL_DIR / f
         model = MNISTCNN().to(DEVICE)
-        model.load_state_dict(
-            torch.load(model_path, map_location=DEVICE),
-            strict=False,
-        )
+        model.load_state_dict(torch.load(path, map_location=DEVICE), strict=False)
         model.eval()
-
         MNIST_MODELS[f] = model
 
-    print("✅ MNIST models loaded into memory")
+    print("✅ MNIST models loaded")
 
+    # ---------- CIFAR ----------
     for f in CIFAR_MODEL_FILES:
-        model_path = MODEL_DIR / f
+        path = MODEL_DIR / f
+        state_dict = torch.load(path, map_location="cpu")
+
+        # 🔥 FIX: dequantize only quantized CIFAR
+        if "quantized" in f:
+            print(f"⚠️ Dequantizing {f}")
+            for k, v in state_dict.items():
+                if hasattr(v, "dequantize"):
+                    state_dict[k] = v.dequantize()
+
         model = CIFARCNN().to(DEVICE)
-        model.load_state_dict(
-            torch.load(model_path, map_location=DEVICE),
-            strict=False
-        )
+        model.load_state_dict(state_dict, strict=False)
         model.eval()
         CIFAR_MODELS[f] = model
 
