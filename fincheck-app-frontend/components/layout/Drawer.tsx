@@ -60,27 +60,18 @@ export function Drawer({ visible, onClose, onThemeToggle }: DrawerProps) {
   }, [visible]);
 
   const handleNavigate = (route: string) => {
-    console.log('🔹 Navigation requested to:', route);
-    console.log('🔹 Current pathname:', pathname);
-    
     onClose();
-    
-    // Small delay to let drawer close
     setTimeout(() => {
       try {
-        // For home route, use push to ensure it works
         if (route === '/') {
-          console.log('🏠 Navigating to home...');
           router.push('/(tabs)' as Href);
         } else {
-          console.log('📄 Navigating to:', route);
           router.push(route as Href);
         }
-        console.log('✅ Navigation initiated successfully');
       } catch (error) {
         console.error('❌ Navigation error:', error);
       }
-    }, 350); // Slightly longer delay
+    }, 350);
   };
 
   return (

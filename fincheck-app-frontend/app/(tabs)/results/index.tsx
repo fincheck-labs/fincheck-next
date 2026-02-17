@@ -23,11 +23,13 @@ interface ResultMeta {
   source?: SourceType;
   dataset_type?: string;
   num_images?: number;
+  createdAt?: string;
 }
 
 interface ResultDoc {
   _id: string;
-  createdAt: string;
+  // Backend now hoists this to top level as a clean ISO string
+  createdAt?: string;
   data: Record<string, any>;
   meta?: ResultMeta;
 }
@@ -84,8 +86,17 @@ export default function ResultsScreen() {
     };
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Unknown date';
+    // Trim microseconds: "2026-02-17T23:29:17.813000" → "2026-02-17T23:29:17.813"
+    // and append Z so Android/Hermes treats it as UTC
+    let s = dateString.trim();
+    // Truncate sub-millisecond precision (>3 decimal digits)
+    s = s.replace(/(\.\d{3})\d+/, '$1');
+    // Append Z if no timezone present
+    if (!/[Zz]$/.test(s) && !/[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z';
+    const date = new Date(s);
+    if (isNaN(date.getTime())) return dateString;
     return date.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -97,16 +108,11 @@ export default function ResultsScreen() {
 
   const getBadgeColor = (type: 'evaluation' | 'source' | 'dataset' | 'images') => {
     switch (type) {
-      case 'evaluation':
-        return colors.primary;
-      case 'source':
-        return '#8b5cf6';
-      case 'dataset':
-        return '#10b981';
-      case 'images':
-        return '#6b7280';
-      default:
-        return colors.primary;
+      case 'evaluation': return colors.primary;
+      case 'source':     return '#8b5cf6';
+      case 'dataset':    return '#10b981';
+      case 'images':     return '#6b7280';
+      default:           return colors.primary;
     }
   };
 
@@ -146,14 +152,11 @@ export default function ResultsScreen() {
           </View>
         )}
 
-        {error && !loading && results.length === 0 &&(
+        {error && !loading && results.length === 0 && (
           <View
             style={[
               styles.errorContainer,
-              {
-                backgroundColor: '#fef2f2',
-                borderColor: '#fecaca',
-              },
+              { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
             ]}
           >
             <ThemedText style={[styles.errorText, { color: '#dc2626' }]}>
@@ -186,8 +189,9 @@ export default function ResultsScreen() {
                   onPress={() => handleResultPress(result._id)}
                   activeOpacity={0.7}
                 >
+                  {/* createdAt is now at top level, hoisted by the backend */}
                   <ThemedText style={[styles.dateText, { opacity: 0.6 }]}>
-                    {formatDate(result.createdAt)}
+                    {formatDate(result.meta?.createdAt)}
                   </ThemedText>
 
                   <View style={styles.badgesContainer}>
@@ -201,14 +205,9 @@ export default function ResultsScreen() {
                       ]}
                     >
                       <ThemedText
-                        style={[
-                          styles.badgeText,
-                          { color: getBadgeColor('evaluation') },
-                        ]}
+                        style={[styles.badgeText, { color: getBadgeColor('evaluation') }]}
                       >
-                        {meta.evaluation_type === 'SINGLE'
-                          ? 'Single Image'
-                          : 'Dataset'}
+                        {meta.evaluation_type === 'SINGLE' ? 'Single Image' : 'Dataset'}
                       </ThemedText>
                     </View>
 
@@ -222,10 +221,7 @@ export default function ResultsScreen() {
                       ]}
                     >
                       <ThemedText
-                        style={[
-                          styles.badgeText,
-                          { color: getBadgeColor('source') },
-                        ]}
+                        style={[styles.badgeText, { color: getBadgeColor('source') }]}
                       >
                         {meta.source}
                       </ThemedText>
@@ -242,10 +238,7 @@ export default function ResultsScreen() {
                         ]}
                       >
                         <ThemedText
-                          style={[
-                            styles.badgeText,
-                            { color: getBadgeColor('dataset') },
-                          ]}
+                          style={[styles.badgeText, { color: getBadgeColor('dataset') }]}
                         >
                           {meta.dataset_type}
                         </ThemedText>
@@ -263,10 +256,7 @@ export default function ResultsScreen() {
                         ]}
                       >
                         <ThemedText
-                          style={[
-                            styles.badgeText,
-                            { color: getBadgeColor('images') },
-                          ]}
+                          style={[styles.badgeText, { color: getBadgeColor('images') }]}
                         >
                           {meta.num_images} images
                         </ThemedText>
@@ -297,9 +287,7 @@ export default function ResultsScreen() {
               style={[styles.uploadButton, { backgroundColor: colors.primary }]}
               onPress={() => router.push('/upload' as any)}
             >
-              <ThemedText style={styles.uploadButtonText}>
-                Go to Upload
-              </ThemedText>
+              <ThemedText style={styles.uploadButtonText}>Go to Upload</ThemedText>
             </TouchableOpacity>
           </View>
         )}
@@ -309,116 +297,28 @@ export default function ResultsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 40,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-  },
-  centerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  loadingText: {
-    fontSize: 14,
-    marginTop: 12,
-  },
-  errorContainer: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 20,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryButton: {
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-  retryButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  resultsList: {
-    gap: 16,
-  },
-  resultCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 20,
-    position: 'relative',
-  },
-  dateText: {
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  badgesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  badge: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  arrowContainer: {
-    position: 'absolute',
-    right: 20,
-    top: '50%',
-    transform: [{ translateY: -10 }],
-  },
-  arrow: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  uploadButton: {
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  uploadButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  container: { flex: 1 },
+  scrollContent: { padding: 24, paddingBottom: 40 },
+  section: { marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 8 },
+  subtitle: { fontSize: 15 },
+  centerContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  loadingText: { fontSize: 14, marginTop: 12 },
+  errorContainer: { borderRadius: 12, borderWidth: 1, padding: 20, alignItems: 'center' },
+  errorText: { fontSize: 14, textAlign: 'center', marginBottom: 16 },
+  retryButton: { borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20 },
+  retryButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
+  resultsList: { gap: 16 },
+  resultCard: { borderRadius: 12, borderWidth: 1, padding: 20, position: 'relative' },
+  dateText: { fontSize: 13, marginBottom: 12 },
+  badgesContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  badge: { borderRadius: 12, borderWidth: 1, paddingVertical: 4, paddingHorizontal: 10 },
+  badgeText: { fontSize: 11, fontWeight: '600' },
+  arrowContainer: { position: 'absolute', right: 20, top: '50%', transform: [{ translateY: -10 }] },
+  arrow: { fontSize: 20, fontWeight: '600' },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  emptyText: { fontSize: 16, marginBottom: 8, textAlign: 'center' },
+  emptySubtext: { fontSize: 14, marginBottom: 24, textAlign: 'center' },
+  uploadButton: { borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24 },
+  uploadButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '600' },
 });

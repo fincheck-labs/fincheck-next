@@ -1766,5 +1766,13 @@ def get_all_results():
 
     for d in docs:
         d["_id"] = str(d["_id"])
+        meta_created = d.get("meta", {}).get("createdAt")
+        if meta_created is not None:
+            if hasattr(meta_created, "isoformat"):
+                d["createdAt"] = meta_created.isoformat() + "Z"
+            else:
+                d["createdAt"] = str(meta_created)
+        else:
+            d["createdAt"] = None
 
     return docs
