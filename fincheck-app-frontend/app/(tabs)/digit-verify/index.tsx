@@ -34,57 +34,61 @@ interface OCRVerificationResult {
 export default function BankingDemoScreen() {
   const { colors, toggleTheme } = useTheme();
   const [drawerVisible, setDrawerVisible] = useState(false);
-
   const [typedText, setTypedText] = useState('');
   const [result, setResult] = useState<OCRVerificationResult | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const viewShotRef = useRef<{ capture: () => Promise<string> } | null>(null);
+  type ViewShotHandle = {
+    capture: () => Promise<string>;
+  };
+
+  const viewShotRef = useRef<ViewShotHandle | null>(null);
 
   const openDrawer = () => setDrawerVisible(true);
   const closeDrawer = () => setDrawerVisible(false);
 
-  /* ================= VERIFY TYPED TEXT ================= */
-async function handleVerifyTypedText() {
-  if (!typedText.trim()) {
-    Alert.alert('Error', 'Please enter text to verify');
-    return;
-  }
-
-  setLoading(true);
-  setResult(null);
-
-  try {
-    if (!viewShotRef.current) {
-      throw new Error('ViewShot not ready');
+  async function handleVerifyTypedText() {
+    if (!typedText.trim()) {
+      Alert.alert('Error', 'Please enter text to verify');
+      return;
     }
 
-    const uri = await viewShotRef.current.capture();
+    setLoading(true);
+    setResult(null);
 
-    const data = await verifyTypedTextApi({
-      image: {
-        uri,
-        name: 'typed-text.png',
-        type: 'image/png',
-      },
-      rawText: typedText,
-    });
+    try {
+      if (!viewShotRef.current) {
+        throw new Error('ViewShot not ready');
+      }
 
-    setResult({
-      verdict: data.verdict,
-      final_output: data.final_output,
-      character_errors: data.errors,
-      explanation: data.why,
-    });
-  } catch (err: any) {
-    Alert.alert('Error', err.message ?? 'Verification failed');
-  } finally {
-    setLoading(false);
+      // Give the ViewShot time to fully render the updated text
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => setTimeout(r, 100));
+
+      const uri = await viewShotRef.current.capture();
+
+      const data = await verifyTypedTextApi({
+        image: {
+          uri,
+          name: 'typed-text.png',
+          type: 'image/png',
+        },
+        rawText: typedText,
+      });
+
+      setResult({
+        verdict: data.verdict,
+        final_output: data.final_output,
+        character_errors: data.errors,
+        explanation: data.why,
+      });
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'Verification failed');
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
-
-  /* ================= VERDICT COLOR ================= */
   function getVerdictColor(verdict?: Verdict) {
     if (!verdict) return colors.text;
     if (verdict === 'VALID_TYPED_TEXT') return '#16a34a';
@@ -103,7 +107,7 @@ async function handleVerifyTypedText() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.section}>
           <ThemedText style={styles.title}>
-            Banking OCR – Character Error Detection
+            Text Based OCR
           </ThemedText>
         </View>
 
@@ -181,7 +185,6 @@ async function handleVerifyTypedText() {
                   <ThemedText style={styles.errorTitle}>
                     Character Errors Detected
                   </ThemedText>
-
                   {result.character_errors.map((e, i) => (
                     <ThemedText key={i} style={styles.errorText}>
                       • Position {e.position}: typed &quot;{e.typed_char}&quot; → OCR &quot;{e.ocr_char}&quot;
@@ -204,23 +207,41 @@ async function handleVerifyTypedText() {
           </View>
         )}
 
-        <ViewShot
-          ref={(ref) => {
-            if (ref) {
-              viewShotRef.current = ref as unknown as {
-                capture: () => Promise<string>;
-              };
-            }
-          }}
-          options={{ format: 'png', quality: 1 }}
-          style={styles.hidden}
-        >
-          <View style={styles.captureBox}>
-            <ThemedText style={styles.captureText}>
-              {typedText}
-            </ThemedText>
-          </View>
-        </ViewShot>
+        {/*
+          ── Hidden ViewShot capture area ──────────────────────────────
+          Rendered off-screen at 3× pixel ratio with:
+          • Pure white background (#ffffff) for maximum contrast
+          • Black text (#000000) — no theming, always high contrast
+          • Large font (96px) so each character is tall and unambiguous
+          • Courier New / monospace so every character has equal width
+            and visually distinct forms (0 vs O, 1 vs l vs I, etc.)
+          • Wide letter-spacing so characters never touch or merge
+          • Each character in its own box for clean per-char segmentation
+        */}
+        <View pointerEvents="none" style={styles.captureWrapper}>
+          <ViewShot
+            ref={(ref) => {
+              if (ref) {
+                viewShotRef.current = ref as unknown as ViewShotHandle;
+              }
+            }}
+            options={{
+              format: 'png',
+              quality: 1,
+              result: 'tmpfile',
+            }}
+          >
+            <View style={styles.captureBox}>
+              <View style={styles.captureCharsRow}>
+                {typedText.split('').map((char, i) => (
+                  <View key={i} style={styles.captureCharCell}>
+                    <ThemedText style={styles.captureChar}>{char}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </ViewShot>
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -259,7 +280,43 @@ const styles = StyleSheet.create({
   explanationBox: { marginTop: 16 },
   explanationLabel: { fontSize: 14, fontWeight: '600' },
   explanationText: { fontSize: 14, lineHeight: 20 },
-  hidden: { position: 'absolute', left: -9999 },
-  captureBox: { backgroundColor: '#fff', padding: 16 },
-  captureText: { fontSize: 28, fontWeight: '600', color: '#000' },
+
+  // ── Hidden capture area ─────────────────────────────────
+  captureWrapper: {
+    position: 'absolute',
+    top: -99999,
+    left: -99999,
+    opacity: 0,
+  },
+  captureBox: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 60,
+    paddingHorizontal: 48,
+    // Very wide canvas — characters never wrap
+    width: 2400,
+    minHeight: 400,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  captureCharsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
+  },
+  captureCharCell: {
+    // Wide fixed cell per character — no crowding or touching
+    width: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureChar: {
+    // Very large font so strokes are thick and unambiguous
+    fontSize: 160,
+    fontWeight: '700',
+    color: '#000000',
+    fontFamily: 'Courier New',
+    lineHeight: 200,
+    textTransform: 'none',
+    includeFontPadding: false,
+  },
 });
