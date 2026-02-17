@@ -152,27 +152,12 @@ export default function ResultDetailScreen() {
     try {
       setExporting(true);
 
-      const blob = await downloadResultPdf(id);
+      await downloadResultPdf(id);
+      Alert.alert("Success", "PDF exported successfully!");
 
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64data = reader.result as string;
-        const fileUri = `${FileSystem.documentDirectory}evaluation_${id}.pdf`;
-
-        await FileSystem.writeAsStringAsync(
-          fileUri,
-          base64data.split(',')[1],
-          { encoding: FileSystem.EncodingType.Base64 }
-        );
-
-        await Sharing.shareAsync(fileUri);
-        Alert.alert('Success', 'PDF exported successfully!');
-      };
-
-      reader.readAsDataURL(blob);
-    } catch (error) {
-      console.error('PDF export error:', error);
-      Alert.alert('Error', 'Failed to export PDF');
+    } catch (e) {
+      console.error("PDF export error:", e);
+      Alert.alert("Error", "Failed to export PDF");
     } finally {
       setExporting(false);
     }

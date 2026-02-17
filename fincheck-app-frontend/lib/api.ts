@@ -1,3 +1,7 @@
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import { Buffer } from "buffer";
+
 export const API_BASE_URL =
   "https://f6fe-103-5-112-80.ngrok-free.app";
 
@@ -39,10 +43,32 @@ export async function downloadResultPdf(id: string) {
   const res = await fetch(`${API_BASE_URL}/export/pdf/${id}`, {
     headers: NGROK_HEADERS,
   });
+
   if (!res.ok) {
     throw new ApiError("PDF download failed", res.status);
   }
-  return res.blob();
+
+  // ✅ Binary fetch
+  const arrayBuffer = await res.arrayBuffer();
+
+  // ✅ Convert to base64
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+  // ✅ Correct document directory
+  const fileUri =
+    `${FileSystem.documentDirectory}evaluation_${id}.pdf`;
+
+  // ✅ WRITE USING STRING LITERAL (TS-safe)
+  await FileSystem.writeAsStringAsync(
+    fileUri,
+    base64,
+    { encoding: "base64" }
+  );
+
+  // ✅ Share
+  await Sharing.shareAsync(fileUri);
+
+  return fileUri;
 }
 
 export async function runSingleInference(params: {
