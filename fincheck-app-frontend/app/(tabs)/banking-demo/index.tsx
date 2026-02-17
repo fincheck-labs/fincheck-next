@@ -16,6 +16,7 @@ import { Header } from '@/components/layout/Header';
 import { Drawer } from '@/components/layout/Drawer';
 import Slider from '@/components/ui/Slider';
 import { useTheme } from '@/hooks/useTheme';
+import { verifyDigitOnly } from '@/lib/api';
 
 type Verdict = 'VALID' | 'INVALID' | 'AMBIGUOUS' | null;
 type DigitStatus = 'VALID' | 'AMBIGUOUS' | 'INVALID';
@@ -98,46 +99,31 @@ export default function DigitVerifyScreen() {
     }
   };
 
-  /* ================= VERIFY API ================= */
   async function verify() {
     if (!file) {
       Alert.alert('Error', 'Please upload an image');
       return;
     }
 
-    const formData = new FormData();
-    
-    // Append image file
-    formData.append('image', {
-      uri: file.uri,
-      type: 'image/jpeg',
-      name: 'cheque_digit.jpg',
-    } as any);
-
-    // Convert % to decimal for backend
-    formData.append('confidence_threshold', String(threshold / 100));
-
     setLoading(true);
     setResult(null);
 
     try {
-      const response = await fetch('http://localhost:8000/verify-digit-only', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
+      const data = await verifyDigitOnly({
+        image: {
+          uri: file.uri,
+          name: 'cheque_digit.jpg',
+          type: 'image/jpeg',
         },
+        confidenceThreshold: threshold / 100,
       });
 
-      if (!response.ok) {
-        throw new Error('Verification failed');
-      }
-
-      const data = await response.json();
       setResult(data);
-    } catch (error) {
-      Alert.alert('Error', 'Verification failed. Please try again.');
-      console.error('Verification error:', error);
+    } catch (err: any) {
+      Alert.alert(
+        'Error',
+        err?.message ?? 'Verification failed. Please try again.'
+      );
     } finally {
       setLoading(false);
     }

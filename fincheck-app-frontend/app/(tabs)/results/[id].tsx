@@ -18,6 +18,7 @@ import Dropdown from '@/components/ui/Dropdown';
 import BarChart from '@/components/charts/BarChartMobile';
 import ConfusionMatrix from '@/components/confusion-matrix/ConfusionMatrix';
 import { useTheme } from '@/hooks/useTheme';
+import { fetchResult, downloadResultPdf } from '@/lib/api';
 
 const MODEL_ORDER = [
   'baseline_mnist.pth',
@@ -75,16 +76,14 @@ export default function ResultDetailScreen() {
   useEffect(() => {
     if (!id) return;
 
-    fetch(`http://localhost:8000/api/results/${id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch');
-        return res.json();
-      })
+    setLoading(true);
+
+    fetchResult(id)
       .then((data) => setDoc(data))
       .catch((error) => {
         console.error('Error fetching result:', error);
-        // Use mock data for testing
-        setDoc(getMockResultDetail());
+        Alert.alert('Error', 'Failed to load result');
+        setDoc(null);
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -153,15 +152,9 @@ export default function ResultDetailScreen() {
     try {
       setExporting(true);
 
-      const response = await fetch(
-        `http://localhost:8000/api/export/pdf/${id}`
-      );
+      const blob = await downloadResultPdf(id);
 
-      if (!response.ok) throw new Error('PDF export failed');
-
-      const blob = await response.blob();
       const reader = new FileReader();
-
       reader.onloadend = async () => {
         const base64data = reader.result as string;
         const fileUri = `${FileSystem.documentDirectory}evaluation_${id}.pdf`;
@@ -169,13 +162,10 @@ export default function ResultDetailScreen() {
         await FileSystem.writeAsStringAsync(
           fileUri,
           base64data.split(',')[1],
-          {
-            encoding: FileSystem.EncodingType.Base64,
-          }
+          { encoding: FileSystem.EncodingType.Base64 }
         );
 
         await Sharing.shareAsync(fileUri);
-
         Alert.alert('Success', 'PDF exported successfully!');
       };
 

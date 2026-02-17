@@ -15,7 +15,7 @@ import { ThemedText } from '@/components/ui/ThemedText';
 import { Header } from '@/components/layout/Header';
 import { Drawer } from '@/components/layout/Drawer';
 import { useTheme } from '@/hooks/useTheme';
-import { uploadChequeImage } from '@/lib/chequeapi';
+import { extractChequeAmount } from '@/lib/api';
 
 type ChequeResult = {
   amount_digits?: string | null;
@@ -116,7 +116,11 @@ export default function ChequeExtractor() {
     setResult(null);
 
     try {
-      const data = await uploadChequeImage(imageUri);
+      const data = await extractChequeAmount({
+        uri: imageUri,
+        name: 'cheque.jpg',
+        type: 'image/jpeg',
+      });
       setResult(data);
     } catch (e: any) {
       const errorMessage = e.message || 'Failed to process cheque';

@@ -13,6 +13,7 @@ import { ThemedText } from '@/components/ui/ThemedText';
 import { Header } from '@/components/layout/Header';
 import { Drawer } from '@/components/layout/Drawer';
 import { useTheme } from '@/hooks/useTheme';
+import { getAllResults } from '@/lib/api';
 
 type EvaluationType = 'SINGLE' | 'DATASET';
 type SourceType = 'PREBUILT' | 'CUSTOM' | 'IMAGE_UPLOAD';
@@ -49,25 +50,12 @@ export default function ResultsScreen() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/results', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch results');
-      }
-
-      const data = await response.json();
+      const data = await getAllResults();
       setResults(data);
     } catch (err) {
       console.error('Error fetching results:', err);
       setError('Failed to load results. Please try again.');
-      
-      setResults(getMockResults());
-      setError(null);
+      setResults([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -318,41 +306,6 @@ export default function ResultsScreen() {
       </ScrollView>
     </ThemedView>
   );
-}
-
-function getMockResults(): ResultDoc[] {
-  return [
-    {
-      _id: 'demo-1',
-      createdAt: new Date().toISOString(),
-      data: {},
-      meta: {
-        evaluation_type: 'SINGLE',
-        source: 'IMAGE_UPLOAD',
-      },
-    },
-    {
-      _id: 'demo-2',
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      data: {},
-      meta: {
-        evaluation_type: 'DATASET',
-        source: 'PREBUILT',
-        dataset_type: 'MNIST_100',
-        num_images: 100,
-      },
-    },
-    {
-      _id: 'demo-3',
-      createdAt: new Date(Date.now() - 172800000).toISOString(),
-      data: {},
-      meta: {
-        evaluation_type: 'DATASET',
-        source: 'CUSTOM',
-        num_images: 500,
-      },
-    },
-  ];
 }
 
 const styles = StyleSheet.create({

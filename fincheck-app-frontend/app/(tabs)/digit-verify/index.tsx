@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -13,13 +13,15 @@ import { ThemedText } from '@/components/ui/ThemedText';
 import { Header } from '@/components/layout/Header';
 import { Drawer } from '@/components/layout/Drawer';
 import { useTheme } from '@/hooks/useTheme';
+import { verifyTypedText as verifyTypedTextApi } from '@/lib/api';
+import ViewShot from 'react-native-view-shot';
 
 type Verdict = 'VALID_TYPED_TEXT' | 'INVALID_OR_AMBIGUOUS' | null;
 
 interface CharacterError {
   position: number;
-  typed: string;
-  interpreted: string;
+  typed_char: string;
+  ocr_char: string;
 }
 
 interface OCRVerificationResult {
@@ -37,49 +39,56 @@ export default function BankingDemoScreen() {
   const [result, setResult] = useState<OCRVerificationResult | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const viewShotRef = useRef<{ capture: () => Promise<string> } | null>(null);
+
   const openDrawer = () => setDrawerVisible(true);
   const closeDrawer = () => setDrawerVisible(false);
 
   /* ================= VERIFY TYPED TEXT ================= */
-  async function verifyTypedText() {
-    if (!typedText.trim()) {
-      Alert.alert('Error', 'Please enter text to verify');
-      return;
-    }
-
-    setLoading(true);
-    setResult(null);
-
-    try {
-      const response = await fetch('http://127.0.0.1:8000/verify-typed-text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          typed_text: typedText,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Verification failed');
-      }
-
-      const data = await response.json();
-      setResult(data);
-    } catch (error) {
-      Alert.alert('Error', 'Verification failed. Please try again.');
-      console.error('Verification error:', error);
-    } finally {
-      setLoading(false);
-    }
+async function handleVerifyTypedText() {
+  if (!typedText.trim()) {
+    Alert.alert('Error', 'Please enter text to verify');
+    return;
   }
+
+  setLoading(true);
+  setResult(null);
+
+  try {
+    if (!viewShotRef.current) {
+      throw new Error('ViewShot not ready');
+    }
+
+    const uri = await viewShotRef.current.capture();
+
+    const data = await verifyTypedTextApi({
+      image: {
+        uri,
+        name: 'typed-text.png',
+        type: 'image/png',
+      },
+      rawText: typedText,
+    });
+
+    setResult({
+      verdict: data.verdict,
+      final_output: data.final_output,
+      character_errors: data.errors,
+      explanation: data.why,
+    });
+  } catch (err: any) {
+    Alert.alert('Error', err.message ?? 'Verification failed');
+  } finally {
+    setLoading(false);
+  }
+}
+
 
   /* ================= VERDICT COLOR ================= */
   function getVerdictColor(verdict?: Verdict) {
     if (!verdict) return colors.text;
-    if (verdict === 'VALID_TYPED_TEXT') return '#16a34a'; // green-600
-    return '#dc2626'; // red-600
+    if (verdict === 'VALID_TYPED_TEXT') return '#16a34a';
+    return '#dc2626';
   }
 
   return (
@@ -91,18 +100,13 @@ export default function BankingDemoScreen() {
         onThemeToggle={toggleTheme}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Title */}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.section}>
           <ThemedText style={styles.title}>
             Banking OCR – Character Error Detection
           </ThemedText>
         </View>
 
-        {/* Input Section */}
         <View style={styles.section}>
           <ThemedText style={styles.label}>Enter Text to Verify</ThemedText>
           <TextInput
@@ -123,7 +127,6 @@ export default function BankingDemoScreen() {
           />
         </View>
 
-        {/* Verify Button */}
         <TouchableOpacity
           style={[
             styles.verifyButton,
@@ -131,9 +134,8 @@ export default function BankingDemoScreen() {
               backgroundColor: loading || !typedText ? colors.border : '#1f2937',
             },
           ]}
-          onPress={verifyTypedText}
+          onPress={handleVerifyTypedText}
           disabled={!typedText || loading}
-          activeOpacity={0.8}
         >
           {loading ? (
             <ActivityIndicator color="#ffffff" />
@@ -144,10 +146,8 @@ export default function BankingDemoScreen() {
           )}
         </TouchableOpacity>
 
-        {/* ================= RESULT ================= */}
         {result && (
           <View style={styles.resultContainer}>
-            {/* Main Result Card */}
             <View
               style={[
                 styles.resultCard,
@@ -176,95 +176,62 @@ export default function BankingDemoScreen() {
                 </ThemedText>
               </View>
 
-              {/* Character Errors */}
-              {result.character_errors && result.character_errors.length > 0 && (
-                <View
-                  style={[
-                    styles.errorBox,
-                    {
-                      backgroundColor: '#fef2f2',
-                      borderColor: '#fecaca',
-                    },
-                  ]}
-                >
-                  <ThemedText style={[styles.errorTitle, { color: '#dc2626' }]}>
+              {result.character_errors?.length ? (
+                <View style={styles.errorBox}>
+                  <ThemedText style={styles.errorTitle}>
                     Character Errors Detected
                   </ThemedText>
 
-                  {result.character_errors.map((error, index) => (
-                    <View key={index} style={styles.errorItem}>
-                      <ThemedText style={[styles.errorText, { color: '#991b1b' }]}>
-                        • Position {error.position}: typed{' '}
-                        <ThemedText style={styles.errorHighlight}>
-                          {error.typed}
-                        </ThemedText>
-                        , interpreted as{' '}
-                        <ThemedText style={styles.errorHighlight}>
-                          {error.interpreted}
-                        </ThemedText>
-                      </ThemedText>
-                    </View>
+                  {result.character_errors.map((e, i) => (
+                    <ThemedText key={i} style={styles.errorText}>
+                      • Position {e.position}: typed &quot;{e.typed_char}&quot; → OCR &quot;{e.ocr_char}&quot;
+                    </ThemedText>
                   ))}
                 </View>
-              )}
+              ) : null}
 
-              {/* Explanation */}
               {result.explanation && (
                 <View style={styles.explanationBox}>
                   <ThemedText style={styles.explanationLabel}>
                     Explanation:
                   </ThemedText>
-                  <ThemedText style={[styles.explanationText, { opacity: 0.8 }]}>
+                  <ThemedText style={styles.explanationText}>
                     {result.explanation}
                   </ThemedText>
                 </View>
               )}
             </View>
-
-            {/* Info Message */}
-            <View
-              style={[
-                styles.infoBox,
-                {
-                  backgroundColor: colors.cardBackground,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <ThemedText style={[styles.infoText, { opacity: 0.7 }]}>
-                This tool simulates OCR character recognition and detects common
-                character confusion errors (e.g., &apos;o&apos; vs &apos;0&apos;, &apos;1&apos; vs &apos;l&apos;).
-              </ThemedText>
-            </View>
           </View>
         )}
+
+        <ViewShot
+          ref={(ref) => {
+            if (ref) {
+              viewShotRef.current = ref as unknown as {
+                capture: () => Promise<string>;
+              };
+            }
+          }}
+          options={{ format: 'png', quality: 1 }}
+          style={styles.hidden}
+        >
+          <View style={styles.captureBox}>
+            <ThemedText style={styles.captureText}>
+              {typedText}
+            </ThemedText>
+          </View>
+        </ViewShot>
       </ScrollView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 40,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    lineHeight: 32,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
+  container: { flex: 1 },
+  scrollContent: { padding: 24, paddingBottom: 40 },
+  section: { marginBottom: 24 },
+  title: { fontSize: 26, fontWeight: '700', lineHeight: 32 },
+  label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   input: {
     borderRadius: 8,
     borderWidth: 1,
@@ -276,80 +243,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
-    justifyContent: 'center',
     minHeight: 52,
     marginBottom: 24,
   },
-  verifyButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  resultContainer: {
-    gap: 16,
-  },
-  resultCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 20,
-  },
-  resultRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  boldText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  verdictText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  regularText: {
-    fontSize: 16,
-  },
-  errorBox: {
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 16,
-    marginTop: 8,
-  },
-  errorTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  errorItem: {
-    marginBottom: 8,
-  },
-  errorText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  errorHighlight: {
-    fontWeight: '700',
-  },
-  explanationBox: {
-    marginTop: 16,
-  },
-  explanationLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  explanationText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  infoBox: {
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 16,
-  },
-  infoText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
+  verifyButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  resultContainer: { gap: 16 },
+  resultCard: { borderRadius: 12, borderWidth: 1, padding: 20 },
+  resultRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  boldText: { fontSize: 16, fontWeight: '700' },
+  verdictText: { fontSize: 16, fontWeight: '600' },
+  regularText: { fontSize: 16 },
+  errorBox: { marginTop: 8 },
+  errorTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  errorText: { fontSize: 14, lineHeight: 20 },
+  explanationBox: { marginTop: 16 },
+  explanationLabel: { fontSize: 14, fontWeight: '600' },
+  explanationText: { fontSize: 14, lineHeight: 20 },
+  hidden: { position: 'absolute', left: -9999 },
+  captureBox: { backgroundColor: '#fff', padding: 16 },
+  captureText: { fontSize: 28, fontWeight: '600', color: '#000' },
 });

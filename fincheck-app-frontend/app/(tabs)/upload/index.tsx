@@ -20,6 +20,11 @@ import Dropdown from '@/components/ui/Dropdown';
 import Slider from '@/components/ui/Slider';
 import { useTheme } from '@/hooks/useTheme';
 import { PREBUILT_DATASETS } from '@/lib/dataset';
+import {
+  runSingleInference,
+  runDatasetEvaluation,
+} from '@/lib/api';
+
 
 type Mode = 'SINGLE' | 'DATASET';
 type DatasetSource = 'PREBUILT' | 'CUSTOM';
@@ -82,30 +87,68 @@ export default function UploadScreen() {
     }
   };
 
-  /* ================= RUN INFERENCE ================= */
   const runInference = async () => {
-    if (mode === 'SINGLE' && !file) {
-      Alert.alert('Error', 'Please upload an image');
-      return;
-    }
+    try {
+      if (mode === 'SINGLE') {
+        if (!imageUri) {
+          Alert.alert('Error', 'Please upload an image');
+          return;
+        }
 
-    if (mode === 'DATASET' && datasetSource === 'CUSTOM' && !file) {
-      Alert.alert('Error', 'Please upload a ZIP file');
-      return;
-    }
+        setLoading(true);
 
-    setLoading(true);
+        const res = await runSingleInference({
+          image: {
+            uri: imageUri,
+            name: 'digit.png',
+            type: 'image/png',
+          },
+          expectedDigit: selectedDigit,
+          blur,
+          rotation,
+          noise,
+          erase,
+        });
 
-    // Simulate API call
-    setTimeout(() => {
+        setLoading(false);
+
+        router.push(`/results/${res.id}`);
+        return;
+      }
+
+      if (mode === 'DATASET') {
+        setLoading(true);
+
+        if (datasetSource === 'PREBUILT') {
+          const res = await runDatasetEvaluation({
+            datasetName: selectedDataset,
+            blur,
+            rotation,
+            noise,
+            erase,
+          });
+
+          setLoading(false);
+          router.push(`/results/${res.id}`);
+          return;
+        }
+
+        if (datasetSource === 'CUSTOM') {
+          Alert.alert(
+            'Not Supported',
+            'Custom ZIP dataset upload is not yet implemented on backend'
+          );
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (err: any) {
       setLoading(false);
-      Alert.alert('Success', 'Inference completed!', [
-        {
-          text: 'View Results',
-          onPress: () => router.push('/results/demo-id'),
-        },
-      ]);
-    }, 2000);
+      Alert.alert(
+        'Error',
+        err?.message ?? 'Inference failed. Please try again.'
+      );
+    }
   };
 
   /* ================= DIGIT DROPDOWN ITEMS ================= */

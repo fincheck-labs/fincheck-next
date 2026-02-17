@@ -1755,3 +1755,16 @@ def get_result(id: str):
 
     doc["_id"] = str(doc["_id"])
     return doc
+
+@app.get("/results")
+def get_all_results():
+    docs = list(
+        mongo_results
+        .find({}, {"data": 0})
+        .sort("meta.createdAt", -1)
+    )
+
+    for d in docs:
+        d["_id"] = str(d["_id"])
+
+    return docs
