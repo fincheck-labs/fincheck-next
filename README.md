@@ -13,15 +13,10 @@
 ![Docusaurus](https://img.shields.io/badge/Docusaurus-Docs-blue?logo=docusaurus)
 ![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Deployed-brightgreen?logo=github)
 
+
 **Risk-Aware Handwritten Digit Verification for Financial Documents**
 
-**Frontend:** Next.js (Bun)
-**Backend:** FastAPI + PyTorch + OpenCV
-**Storage & Reports:** MongoDB + ReportLab
-
----
-
-## Abstract
+## 1. Abstract
 
 Traditional OCR and digit-recognition systems optimize for accuracy and always emit a prediction. In financial workflows such as cheque processing, **a wrong prediction is more dangerous than no prediction**.
 
@@ -43,16 +38,14 @@ methods degrade gracefully under real-world visual complexity.
 
 ---
 
-## Core Principle
+## 2. Core Principle
+
 
 > **If the system is not confident, it must refuse.**  
 > **A model that performs well only on MNIST but collapses under CIFAR is considered unsafe for real-world deployment.**
 
----
 
-# 🧠 System Architecture
-
----
+## 3. System Architecture
 
 ## 🔹 System Architecture I
 
@@ -200,8 +193,7 @@ Automatically learn the optimal balance between:
 Instead of manually selecting risk weights, the system evolves alpha (α) using an adaptive genetic strategy.
 
 ---
-
-## Why MNIST Is Used
+## 4. Why MNIST Is Used
 
 MNIST is not used to recognize cheques.
 It serves as a **digit shape manifold prior**.
@@ -223,7 +215,7 @@ CIFAR results are interpreted only after MNIST acceptance, never as a standalone
 
 ---
 
-## Digit Segmentation Pipeline
+## 5. Digit Segmentation Pipeline
 
 1. Grayscale conversion
 2. Stroke enhancement (morphological close)
@@ -240,7 +232,8 @@ CIFAR results are interpreted only after MNIST acceptance, never as a standalone
 
 Segmentation is treated as a **risk control stage**. Borderline components are rejected.
 
-## Multi-Model Inference
+
+## 6. Multi-Model Inference
 
 All models are loaded at startup and evaluated in parallel:
 
@@ -271,7 +264,8 @@ robustness gaps introduced by compression.
 
 ---
 
-## Risk Metrics
+
+## 7. Risk Metrics
 
 Fincheck evaluates models using:
 
@@ -291,11 +285,8 @@ Risk = 0.5 × FAR + 0.5 × FRR
 Lower risk score is preferred over higher accuracy.
 
 ---
-# Evolutionary Risk Optimization Framework (ERO)
-
----
-
-# 1. Motivation
+## 8. Evolutionary Risk Optimization Framework (ERO)
+### 8.1 Motivation
 
 Traditional model selection primarily optimizes **classification accuracy**.
 However, in financial systems such as cheque validation and fraud-sensitive environments, accuracy alone is insufficient for safe deployment.
@@ -313,8 +304,7 @@ In cheque validation systems:
 Therefore, Fincheck reformulates model selection as a **financial risk minimization problem**, not merely an accuracy comparison problem.
 
 ---
-
-# 2. Risk Formulation
+### 8.2 Risk Formulation
 
 For each model `m`, financial risk is defined as:
 
@@ -333,7 +323,7 @@ This produces a weighted composite financial risk score reflecting the trade-off
 
 ---
 
-# 3. Why Alpha Must Be Learned
+### 8.3 Why Alpha Must Be Learned
 
 Manually selecting ( \alpha ):
 
@@ -356,9 +346,7 @@ Importantly:
 > Alpha is not treated as a hyperparameter — it is treated as a learned financial policy indicator.
 
 ---
-
-# 4. Optimization Objective
-
+### 8.4 Optimization Objective
 The evolutionary process solves:
 
 α* = argmin_{α ∈ (0,1)}  Σ_{m=1}^{M} R_m(α)
@@ -366,9 +354,7 @@ The evolutionary process solves:
 This transforms model comparison into a continuous scalar optimization problem over a financial policy parameter.
 
 ---
-
-# 5. Representation
-
+### 8.5  Representation
 Each individual in the evolutionary population represents a scalar:
 
 α ∈ (0,1)
@@ -382,9 +368,7 @@ Example initial population:
 Each candidate ( \alpha ) is evaluated using a stabilized financial fitness function.
 
 ---
-
-# 6. Stabilized Research-Grade Fitness Function
-
+### 8.6 Stabilized Research-Grade Fitness Function
 A naïve linear objective:
 
 Weighted Risk = α · FAR + (1 − α) · FRR
@@ -399,7 +383,7 @@ Fincheck therefore introduces stabilization components.
 
 ---
 
-## 6.1 Proper Normalization
+### **8.6.1 Proper Normalization**
 
 Instead of simple ratio normalization, we apply symmetric normalization:
 
@@ -413,7 +397,7 @@ This normalization:
 - Produces scale-invariant ratios  
 - Improves convergence stability during optimization
 ---
-## 6.2 Logarithmic Compression
+### **8.6.2 Logarithmic Compression**
 
 We apply logarithmic compression to stabilize optimization:
 
@@ -427,8 +411,8 @@ Benefits:
 - Smooths the optimization surface  
 - Improves convergence stability  
 - Reduces domination by skewed error distributions
----
-## 6.3 Interior Regularization
+--
+### **8.6.3 Interior Regularization**
 
 To prevent collapse toward extreme policies, we introduce quadratic regularization:
 
@@ -437,9 +421,8 @@ To prevent collapse toward extreme policies, we introduce quadratic regularizati
 Where:
 - λ controls regularization strength
 
-This encourages interior solutions and prevents trivial single-objective dominance.
 ---
-## 6.4 Soft Boundary Barrier
+### **8.6.4 Soft Boundary Barrier** 
 
 To prevent α from reaching the unstable boundaries 0 or 1, we apply a soft barrier:
 
@@ -454,7 +437,7 @@ This ensures:
 - Balanced financial calibration  
 - Avoidance of degenerate policy collapse
 ---
-## Final Fitness Definition
+## 9.Final Fitness Definition
 
 The complete stabilized objective function is:
 
@@ -484,12 +467,10 @@ This objective is:
 * Differentiable (almost everywhere)
 * Well-conditioned
 * Interior-stable
-
 ---
+## 10. Evolutionary Algorithm Design
 
-# 7. Evolutionary Algorithm Design
-
-## 7.1 Generation Cycle
+## 10.1 Generation Cycle
 
 Each generation performs:
 
@@ -502,7 +483,7 @@ Each generation performs:
 
 ---
 
-## 7.2 Population Size
+## 10.2 Population Size
 
 Default: 20
 
@@ -513,7 +494,7 @@ Trade-off:
 
 ---
 
-## 7.3 Tournament Selection (k = 3)
+## 10.3 Tournament Selection (k = 3)
 
 * Randomly sample 3 individuals
 * Select the best among them
@@ -526,14 +507,14 @@ Advantages:
 
 ---
 
-## 7.4 Biased Crossover
+## 10.4 Biased Crossover
 
 α_child = 0.7 · α_better + 0.3 · α_other
 
 Encourages exploitation while preserving exploration.
 
 ---
-## 7.5 Adaptive Gaussian Mutation
+## 10.5 Adaptive Gaussian Mutation
 
 Mutation is applied as:
 
@@ -558,7 +539,7 @@ This ensures:
 - Smooth convergence behavior  
 ---
 
-## 7.6 Elitism
+## 10.6 Elitism
 
 Top 4 individuals are preserved unchanged.
 
@@ -566,7 +547,7 @@ Guarantees monotonic best-fitness improvement.
 
 ---
 
-## 7.7 Diversity Injection
+## 10.7 Diversity Injection
 
 If:
 
@@ -587,7 +568,7 @@ This mechanism prevents:
 - Loss of genetic diversity  
 ---
 
-## 7.8 Stagnation Recovery
+## 10.8 Stagnation Recovery
 
 If no improvement persists for K generations:
 
@@ -595,7 +576,7 @@ If no improvement persists for K generations:
 * Reset stagnation counter
 
 ---
-## 7.9 Adaptive Termination
+## 10.9 Adaptive Termination
 
 Stop evolution if:
 
@@ -615,13 +596,13 @@ This makes the evolutionary process:
 - Data-adaptive  
 - Computationally economical  
 ---
-## 7.10 Adaptive Generation Control
+## 10.10 Adaptive Generation Control
 
 Unlike fixed-iteration evolutionary systems, ERO does not rely on a predetermined number of generations.
 
 Instead, the number of generations is **data-driven** and determined dynamically using three mechanisms:
 
-### Convergence Check
+### 10.10.1 Convergence Check
 
 Evolution terminates if:
 
@@ -635,7 +616,7 @@ This indicates that improvement has become negligible.
 
 ---
 
-###  Stagnation Monitoring
+### 10.10.2 Stagnation Monitoring
 
 If no improvement in best fitness persists for a predefined number of generations:
 
@@ -650,7 +631,7 @@ the algorithm either:
 
 ---
 
-###  Safety Cap
+### 10.10.3 Safety Cap
 
 A maximum generation limit (G_max) exists only as a protective upper bound.
 
@@ -658,7 +639,7 @@ In practice, evolution typically stops earlier due to convergence.
 
 ---
 
-###  Resulting Behavior
+### 10.10.4  Resulting Behavior
 
 Generation count becomes:
 
@@ -672,7 +653,7 @@ The algorithm runs **as long as meaningful improvement exists**, and stops once 
 This ensures optimization is neither prematurely terminated nor unnecessarily prolonged.
 
 ---
-# 8. Evolutionary Diagnostic Graphs
+## 11. Evolutionary Diagnostic Graphs
 
 To ensure interpretability, transparency, and research reproducibility, the Evolutionary Risk Optimization framework generates three primary diagnostic graphs.
 
@@ -680,7 +661,7 @@ These graphs validate convergence behavior, stability, and financial improvement
 
 ---
 
-## 8.1 Alpha Evolution Curve
+## 11.1 Alpha Evolution Curve
 
 ![Alpha Evolution Curve](screenshots/Alpha.png)
 
@@ -708,7 +689,7 @@ Interpretation:
 
 ---
 
-## 8.2 Fitness Evolution Curve
+## 11.2 Fitness Evolution Curve
 ![Alpha Evolution Curve](screenshots/Fitness.png)
 
 This graph plots:
@@ -733,7 +714,7 @@ Expected behavior:
 
 ---
 
-## 8.3 Risk Reduction Curve
+## 11.3 Risk Reduction Curve
 
 ![Alpha Evolution Curve](screenshots/Risk_reduction.png)
 
@@ -751,7 +732,7 @@ Purpose:
 This graph translates optimization progress into a financial performance metric.
 
 ---
-# 9. Pareto Frontier Analysis
+## 12. Pareto Frontier Analysis
 
 Although scalar optimization is performed, models are additionally analyzed under Pareto optimality.
 ### Pareto Dominance Definition
@@ -782,8 +763,7 @@ Global optimality requires:
 2. Minimum evolved risk
 
 ---
-
-# 10. Ablation Study
+## 13. Ablation Study
 
 Static alphas (e.g., 0.3, 0.5, 0.7) are compared against evolved ( \alpha^* ).
 
@@ -794,7 +774,7 @@ Empirical observation:
 
 ---
 
-# 11. Statistical Significance
+## 14. Statistical Significance
 
 Tests included:
 
@@ -806,7 +786,7 @@ If ( p < 0.05 ), improvements are statistically significant.
 
 ---
 
-# 12. Cross-Dataset Generalization
+## 15. Cross-Dataset Generalization
 
 Alpha learned on MNIST evaluated on CIFAR.
 
@@ -818,7 +798,7 @@ Results:
 Indicates policy transferability.
 
 ---
-# 13. Computational Complexity
+## 16. Computational Complexity
 
 Let:
 
@@ -838,8 +818,7 @@ O(P)
 
 because only the population of α values is maintained.
 ---
-
-# 14. Why Evolution Over Grid Search?
+## 17. Why Evolution Over Grid Search?
 
 | Grid Search     | Evolutionary Strategy |
 | --------------- | --------------------- |
@@ -852,8 +831,7 @@ because only the population of α values is maintained.
 Evolution handles non-convex financial landscapes more robustly.
 
 ---
-
-# 15. Financial Interpretation of Alpha
+## 18.  Financial Interpretation of Alpha
 
 | Alpha   | Interpretation                       |
 | ------- | ------------------------------------ |
@@ -864,8 +842,7 @@ Evolution handles non-convex financial landscapes more robustly.
 Alpha represents a learned institutional risk posture.
 
 ---
-
-# 16. Conceptual Summary
+## 19. Conceptual Summary
 
 The Evolutionary Risk Optimization framework transforms model selection from:
 
@@ -883,9 +860,7 @@ Fincheck becomes:
 * Financially robust
 
 ---
-
-
-## Stress Testing (Cheque Simulation)
+## 20. Stress Testing (Cheque Simulation)
 
 Runtime perturbations simulate real cheque conditions:
 
@@ -901,8 +876,7 @@ Used in `/run` and `/run-dataset`.
 The same perturbations are applied to CIFAR to analyze whether compression-induced failures amplify under visual complexity.
 
 ---
-
-## API Endpoints
+## 21. API Endpoints
 
 | Endpoint                  | Purpose                        |
 | ------------------------- | ------------------------------ |
@@ -916,7 +890,7 @@ The same perturbations are applied to CIFAR to analyze whether compression-induc
 
 ---
 
-## PDF Reporting & Logging
+## 22. PDF Reporting & Logging
 
 Each export:
 
@@ -931,25 +905,7 @@ Ensures auditability and reproducibility.
 
 ---
 
-## Frontend as Experiment Control Panel
-
-The UI is designed for experimentation:
-
-* Confidence threshold slider
-* Noise / perturbation sliders
-* Model selection
-* Dataset sampling
-* Preprocessed image preview
-* Model sorting by risk / latency / confidence
-* Experiment presets
-* MNIST vs CIFAR comparison dashboard
-* Delta visualization (accuracy, latency, risk)
-* Dataset-level winner identification
-* Compression generalization ranking
-
----
-
-## Technology Stack
+## 23. Tech - Stack Used
 
 ### Frontend
 
@@ -969,29 +925,237 @@ The UI is designed for experimentation:
 * ReportLab
 
 ---
+Below is your **project structure preserved exactly**, reformatted cleanly in research-grade documentation style for inclusion in a thesis, whitepaper, or technical report.
 
-## Project Structure
-
-```
-fincheck/
-├── fintech-backend/
-│   ├── server.py
-│   ├── model_def.py
-│   ├── model/
-│   ├── data/
-│   └── requirements.txt
-│
-├── fintech-frontend/
-│   ├── app/
-│   ├── components/
-│   └── package.json
-```
+No files removed. No structure changed. Only formatting cleaned.
 
 ---
 
-## Setup Instructions
+# 24. Project Structure
 
-### 1. Prerequisites
+Fincheck follows a modular full-stack architecture divided into:
+
+* **Frontend (Next.js + Bun)**
+* **Backend (FastAPI + PyTorch)**
+
+---
+
+# 24.1 Frontend Structure — `fintech-frontend/`
+
+```
+fintech-frontend/
+├── Makefile
+├── README.md
+├── biome.json
+├── bun.lock
+├── components
+│   ├── Content.tsx
+│   ├── Dropdown.tsx
+│   ├── EvaluationModeSelector.tsx
+│   ├── ExportDatasetPdfButton.tsx
+│   ├── ExportSinglePdfButton.tsx
+│   ├── GitHubSignIn.tsx
+│   ├── Header.tsx
+│   ├── LogoutButton.tsx
+│   ├── Slider.tsx
+│   ├── ThemeController.tsx
+│   ├── UserInfo.tsx
+│   ├── chartTheme.ts
+│   ├── charts
+│   │   ├── ChartSection.tsx
+│   │   └── GraphCard.tsx
+│   ├── confusion-matrix
+│   │   ├── ConfusionMatrix.tsx
+│   │   ├── index.ts
+│   │   └── types.ts
+│   └── metrics
+│       ├── MetricBar.tsx
+│       ├── metricMeta.ts
+│       └── types.ts
+├── middleware.ts
+├── next-env.d.ts
+├── next.config.ts
+├── package.json
+├── postcss.config.mjs
+├── public
+│   └── fincheck-logo.png
+├── src
+│   ├── app
+│   │   ├── (auth)
+│   │   │   ├── login
+│   │   │   │   └── page.tsx
+│   │   │   └── signup
+│   │   │       └── page.tsx
+│   │   ├── api
+│   │   │   ├── auth
+│   │   │   │   └── [...better-auth]
+│   │   │   │       └── route.ts
+│   │   │   ├── export
+│   │   │   │   └── pdf
+│   │   │   │       └── [id]
+│   │   │   │           └── route.ts
+│   │   │   ├── results
+│   │   │   │   └── [id]
+│   │   │   │       └── route.ts
+│   │   │   ├── run
+│   │   │   │   └── route.ts
+│   │   │   ├── run-dataset
+│   │   │   │   └── route.ts
+│   │   │   ├── upload
+│   │   │   │   └── route.ts
+│   │   │   └── verify
+│   │   │       └── route.ts
+│   │   ├── banking-demo
+│   │   │   └── page.tsx
+│   │   ├── cheque
+│   │   │   └── page.tsx
+│   │   ├── compare
+│   │   │   └── [id]
+│   │   │       └── page.tsx
+│   │   ├── digit-verify
+│   │   │   └── page.tsx
+│   │   ├── favicon.ico
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   ├── results
+│   │   │   ├── [id]
+│   │   │   │   └── page.tsx
+│   │   │   └── page.tsx
+│   │   └── upload
+│   │       └── page.tsx
+│   └── lib
+│       ├── auth-client.ts
+│       ├── auth.ts
+│       ├── dataset.ts
+│       ├── exportPdf.ts
+│       └── mongodb.ts
+├── tailwind.config.ts
+└── tsconfig.json
+```
+
+**Total:** 32 directories, 57 files
+
+---
+
+## Frontend Design Responsibilities
+
+* Interactive risk control panel
+* Dataset benchmarking UI
+* MNIST vs CIFAR comparison dashboard
+* PDF export trigger interface
+* Authentication layer (Better Auth)
+* Visualization (Charts, Confusion Matrices, Metrics)
+
+---
+
+# 24.2 Backend Structure — `fintech-backend/`
+
+```
+fintech-backend/
+├── Dockerfile
+├── Makefile
+├── __init__.py
+├── __pycache__
+│   ├── download_modes.cpython-312.pyc
+│   ├── model_def.cpython-312.pyc
+│   ├── risk_evolution.cpython-312.pyc
+│   └── server.cpython-312.pyc
+├── data
+│   ├── MNIST
+│   │   └── raw
+│   │       ├── t10k-images-idx3-ubyte
+│   │       ├── t10k-images-idx3-ubyte.gz
+│   │       ├── t10k-labels-idx1-ubyte
+│   │       ├── t10k-labels-idx1-ubyte.gz
+│   │       ├── train-images-idx3-ubyte
+│   │       ├── train-images-idx3-ubyte.gz
+│   │       ├── train-labels-idx1-ubyte
+│   │       └── train-labels-idx1-ubyte.gz
+│   ├── cifar-10-batches-py
+│   │   ├── batches.meta
+│   │   ├── data_batch_1
+│   │   ├── data_batch_2
+│   │   ├── data_batch_3
+│   │   ├── data_batch_4
+│   │   ├── data_batch_5
+│   │   ├── readme.html
+│   │   └── test_batch
+│   └── cifar-10-python.tar.gz
+├── download_modes.py
+├── export_routes.py
+├── model
+│   ├── baseline_cifar.pth
+│   ├── baseline_mnist.pth
+│   ├── kd_cifar.pth
+│   ├── kd_mnist.pth
+│   ├── lrf_cifar.pth
+│   ├── lrf_mnist.pth
+│   ├── pruned_cifar.pth
+│   ├── pruned_mnist.pth
+│   ├── quantized_cifar.pth
+│   ├── quantized_mnist.pth
+│   ├── ws_cifar.pth
+│   └── ws_mnist.pth
+├── model_def.py
+├── models
+│   ├── emnist
+│   │   ├── common.py
+│   │   ├── train_baseline.py
+│   │   ├── train_kd.py
+│   │   ├── train_lrf.py
+│   │   ├── train_pruned.py
+│   │   ├── train_quantized.py
+│   │   └── train_ws.py
+│   └── emnist_pth
+│       ├── baseline_mnist.pth
+│       ├── kd_mnist.pth
+│       ├── lrf_mnist.pth
+│       ├── pruned_mnist.pth
+│       ├── quantized_mnist.pth
+│       └── ws_mnist.pth
+├── quantize_cifar.py
+├── requirements.txt
+├── risk_evolution.py
+└── server.py
+```
+
+**Total:** 10 directories, 56 files
+
+---
+
+## Backend Design Responsibilities
+
+* Digit segmentation pipeline
+* MNIST/CIFAR model loading
+* Multi-model parallel inference
+* FAR/FRR computation
+* Evolutionary Risk Optimization (risk_evolution.py)
+* Dataset benchmarking
+* Stress perturbations
+* PDF generation
+* MongoDB experiment logging
+* REST API routing (server.py)
+
+---
+
+# 24.3 Architectural Separation of Concerns
+
+| Layer        | Responsibility                                      |
+| ------------ | --------------------------------------------------- |
+| Frontend     | Experiment control, visualization, user interaction |
+| Backend      | Risk evaluation, model inference, optimization      |
+| Data         | MNIST & CIFAR datasets                              |
+| Model        | Compressed CNN checkpoints                          |
+| Optimization | Evolutionary alpha learning                         |
+| Storage      | MongoDB + PDF archival                              |
+
+---
+
+## 25. Setup Instructions
+
+
+### 25.1. Prerequisites
 
 Install:
 
@@ -1029,7 +1193,7 @@ brew install tesseract
 
 ---
 
-## Backend Setup (FastAPI)
+### 25.2 Backend Setup (FastAPI)
 
 ```bash
 cd fintech-backend
@@ -1057,7 +1221,7 @@ uvicorn server:app --reload --port 8000
 
 ---
 
-## Frontend Setup (Next.js + Bun)
+### 25.3 Frontend Setup (Next.js + Bun)
 
 ```bash
 cd fintech-frontend
@@ -1074,7 +1238,7 @@ http://localhost:3000
 
 ---
 
-## Reproducibility Features
+## 26. Reproducibility Features
 
 * Fixed random seeds for perturbations
 * Deterministic CUDA settings
@@ -1084,7 +1248,7 @@ http://localhost:3000
 
 ---
 
-## Intended Use Cases
+## 27. Intended Use Cases
 
 * Cheque digit validation
 * Account number verification
@@ -1095,8 +1259,7 @@ http://localhost:3000
 * Compression robustness and generalization analysis
 
 ---
-
-## Design Philosophy
+## 28.  Design Philosophy
 
 Fincheck prioritizes:
 
@@ -1106,7 +1269,6 @@ Fincheck prioritizes:
 * Auditability over convenience
 
 ---
-
 ## License
 
 For academic, research, and demonstration purposes only.
