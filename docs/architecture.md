@@ -1,56 +1,75 @@
 # Architecture Overview
 
-## 1. Architectural Objective
-
-Fincheck is architected as a **risk-aware validation system** rather than a traditional OCR or digit-recognition pipeline.
-The primary objective of the architecture is to **prevent unsafe predictions** in financial workflows by explicitly modeling **uncertainty, confidence, and operational risk**.
-
-Unlike accuracy-driven systems, Fincheck is designed to:
-
-* Detect ambiguous or out-of-distribution digits
-* Refuse predictions when confidence is insufficient
-* Provide traceable, auditable evaluation artifacts
-* Support controlled experimentation and benchmarking
-
-The architecture prioritizes **safety, reproducibility, and explainability** over raw throughput.
+**Fincheck — Confidence-Aware Cheque Digit Validation System**
 
 ---
 
-## 2. High-Level System Flow
+## 1. Architectural Objective
+
+Fincheck is engineered as a **risk-calibrated validation framework**, not merely a digit-recognition or OCR pipeline.
+Its primary objective is to **prevent unsafe automated decisions in financial workflows** by explicitly modeling:
+
+* Prediction confidence
+* Uncertainty
+* False acceptance risk
+* False rejection cost
+
+Unlike traditional accuracy-optimized systems, Fincheck is designed to:
+
+* Detect ambiguous or structurally unsafe digits
+* Reject low-confidence predictions instead of forcing classification
+* Quantify operational and financial risk exposure
+* Produce traceable, auditable evaluation artifacts
+* Enable controlled experimentation under distribution shift
+
+The architecture emphasizes **safety, reproducibility, interpretability, and auditability** over raw inference throughput.
+
+---
+
+## 2. End-to-End System Flow
 
 ```
 Input Image / Dataset
         ↓
-Preprocessing & Normalization
+Preprocessing & Standardization
         ↓
 Digit Segmentation
         ↓
-MNIST-Style Digit Canonicalization
+MNIST-Style Canonicalization
         ↓
 Multi-Model Inference
         ↓
 Uncertainty & Risk Computation
+        ↓
+Evolutionary Risk Optimization (α Learning)
         ↓
 Decision Logic (VALID / AMBIGUOUS / INVALID)
         ↓
 Persistence, Reporting & Visualization
 ```
 
-Each stage acts as an **independent risk control point**, ensuring that errors or ambiguities do not propagate silently.
+Each stage functions as an **explicit risk control boundary**, ensuring that ambiguity or instability does not propagate silently downstream.
 
 ---
 
-## 3. Layered Architecture
+## 3. Layered System Architecture
 
-Fincheck follows a **layered, modular architecture** consisting of five primary layers:
+Fincheck follows a modular, layered architecture consisting of:
 
-1. Input & Preprocessing Layer
-2. Segmentation & Canonicalization Layer
-3. Model Inference & Risk Evaluation Layer
-4. Persistence & Reporting Layer
-5. Visualization & Interaction Layer
+1. **Input & Preprocessing Layer**
+2. **Segmentation & Canonicalization Layer**
+3. **Model Inference & Risk Evaluation Layer**
+4. **Evolutionary Risk Optimization Layer**
+5. **Decision & Validation Layer**
+6. **Persistence & Reporting Layer**
+7. **Visualization & Interaction Layer**
 
-Each layer is loosely coupled and independently testable.
+Each layer is:
+
+* Loosely coupled
+* Independently testable
+* Deterministic under controlled seeds
+* Designed for research reproducibility
 
 ---
 
@@ -58,20 +77,20 @@ Each layer is loosely coupled and independently testable.
 
 ### Purpose
 
-This layer standardizes raw inputs and removes low-level noise before any learning-based inference.
+To standardize raw inputs and reduce uncontrolled visual noise prior to learning-based inference.
 
 ### Responsibilities
 
 * Grayscale conversion
-* Stroke enhancement using morphological operations
-* Adaptive and Otsu thresholding
+* Morphological stroke enhancement
+* Otsu and adaptive thresholding
 * Noise suppression
-* Region-of-interest extraction for cheque fields
+* Cheque field region-of-interest extraction
 
-### Design Rationale
+### Design Philosophy
 
-Preprocessing is treated as a **risk mitigation stage**.
-Poor-quality inputs are intentionally degraded into low-confidence representations rather than artificially enhanced.
+Preprocessing is treated as a **risk containment stage**, not an image beautification step.
+Low-quality inputs are not artificially enhanced to inflate confidence. Instead, they are allowed to degrade into low-confidence representations, enabling safe rejection.
 
 ### Technologies
 
@@ -81,186 +100,287 @@ Poor-quality inputs are intentionally degraded into low-confidence representatio
 
 ---
 
-## 5. Digit Segmentation & Canonicalization Layer
+## 5. Segmentation & Canonicalization Layer
 
-### Segmentation Strategy
+### 5.1 Digit Segmentation
 
-Digits are extracted using **connected component analysis**, followed by geometric filtering:
+Digits are extracted via connected component analysis with strict geometric filtering:
 
 * Minimum area threshold
-* Width and height constraints
+* Width/height constraints
+* Noise rejection
 * Left-to-right ordering
 
-Components that do not satisfy geometric constraints are rejected early.
+Components failing structural constraints are discarded early.
 
-### MNIST Canonicalization
+### 5.2 MNIST Canonicalization
 
-Each accepted digit undergoes strict normalization:
+Accepted components undergo strict normalization:
 
-* Tight bounding-box crop
-* Aspect-ratio–preserving resize
-* Placement on a 28×28 canvas
+* Tight bounding-box cropping
+* Aspect-ratio–preserving resizing
+* Center placement on a 28×28 canvas
 * Center-of-mass alignment
 
 ### Architectural Role
 
-This layer enforces a **digit shape prior**.
-Digits that cannot be normalized into a valid MNIST-like representation are considered **structurally unsafe** and rejected.
+This layer enforces a **digit shape manifold prior**.
+Inputs that cannot be normalized into a canonical MNIST-like representation are considered structurally unsafe and rejected before inference.
 
 ---
 
 ## 6. Model Inference & Risk Evaluation Layer
 
-### Model Strategy
+### 6.1 Multi-Model Strategy
 
-Multiple MNIST-based CNN variants are loaded into memory at startup and evaluated under identical conditions:
+Multiple compressed CNN variants are loaded at startup and evaluated in parallel:
 
 * Baseline CNN
-* Knowledge Distillation
-* Pruned models
-* Quantized models
-* Low-Rank Factorized models
-* Weight Sharing models
+* Knowledge Distillation (KD)
+* Pruned Networks
+* Quantized Networks
+* Low-Rank Factorized Models
+* Weight Sharing Architectures
 
-This enables **comparative risk evaluation**, not just single-model prediction.
+This enables **comparative risk profiling**, not single-model dependency.
 
-### Inference Outputs
+### 6.2 Inference Outputs
 
 For each model, the system computes:
 
-* Softmax confidence
-* Entropy (uncertainty)
-* Logit stability
+* Softmax confidence (mean max probability)
+* Predictive entropy
+* Logit stability (variance proxy)
 * Per-image latency
+* Confusion matrix (when ground truth is available)
 
-### Risk Metrics
+### 6.3 Risk Metrics
 
-Ground-truth–aware evaluations compute:
+From confusion matrices:
 
-* False Accept Rate (FAR)
-* False Reject Rate (FRR)
-* Composite Risk Score
+* **FAR (False Accept Rate)**
+* **FRR (False Reject Rate)**
 
-Risk Score is defined as:
+Composite risk:
 
 ```
 Risk = α × FAR + β × FRR
 ```
 
+Where:
+
+* α represents fraud-sensitivity weight
+* β = 1 − α represents rejection-sensitivity weight
+
 Lower risk is preferred over higher accuracy.
 
 ---
 
-## 7. Decision Logic Layer
-
-Fincheck employs a **three-state decision model**:
-
-* **VALID** — High confidence, low uncertainty
-* **AMBIGUOUS** — Borderline confidence, requires review
-* **INVALID** — Low confidence or structurally unsafe
-
-This design prevents forced predictions and supports **human-in-the-loop workflows**.
-
-The system explicitly favors **false rejection over false acceptance**, aligning with financial safety requirements.
-
----
-
-## 8. Persistence & Reporting Layer
+## 7. Evolutionary Risk Optimization (ERO) Layer
 
 ### Purpose
 
-This layer provides **auditability, traceability, and reproducibility**.
+Rather than fixing α = 0.5 arbitrarily, Fincheck **learns α dynamically** using an evolutionary strategy.
+
+This transforms model selection into a **financial policy optimization problem**.
+
+---
+
+### 7.1 ERO Workflow
+
+```
+Model Evaluation Results
+        ↓
+Extract FAR / FRR per Model
+        ↓
+Construct Stabilized Fitness Function
+        ↓
+Initialize Population (α ∈ (0,1))
+        ↓
+Evolution Loop:
+    • Tournament Selection
+    • Biased Crossover
+    • Adaptive Gaussian Mutation
+    • Elitism
+    • Diversity Injection
+    • Stagnation Recovery
+    • Convergence Detection
+        ↓
+Optimized α*
+        ↓
+Risk Recalibration
+        ↓
+Final Model Ranking
+```
+
+---
+
+### 7.2 Fitness Stabilization Components
+
+The optimization objective includes:
+
+* Relative error normalization
+* Logarithmic compression
+* Interior quadratic regularization
+* Soft boundary barrier
+
+These mechanisms prevent:
+
+* Boundary collapse (α → 0 or 1)
+* Metric dominance
+* Numerical instability
+* Degenerate policy solutions
+
+---
+
+### 7.3 Outputs of ERO
+
+The optimization produces:
+
+* Learned α* and β*
+* Optimized model ranking
+* Convergence history
+* Fitness trajectory
+* Diversity statistics
+* Generation count used
+
+ERO is computationally lightweight (O(G · P · M)) and deterministic under fixed seeds.
+
+---
+
+## 8. Decision & Validation Layer
+
+Fincheck implements a **three-state decision model**:
+
+* **VALID** — High confidence, low entropy
+* **AMBIGUOUS** — Borderline confidence, requires review
+* **INVALID** — Low confidence or structural failure
+
+Decision logic integrates:
+
+* Confidence threshold
+* Ambiguity buffer window
+* Structural validation
+* Risk calibration
+
+The system explicitly favors **false rejection over false acceptance**, consistent with financial safety requirements.
+
+---
+
+## 9. Persistence & Reporting Layer
+
+### Purpose
+
+To ensure full auditability and reproducibility of every experiment.
 
 ### Stored Artifacts
 
 * Model-wise metrics
-* Confusion matrices
 * FAR / FRR / Risk scores
-* Stress-test parameters
+* Evolutionary optimization history
+* Confusion matrices
+* Stress parameters
 * Dataset metadata
 * Timestamps
 
-### Reporting
+### Reporting Capabilities
 
 * Automated PDF generation
-* Metrics tables
+* Tabulated metrics
 * Confusion matrix visualization
 * Experiment metadata embedding
 
 ### Technologies
 
-* MongoDB
-* ReportLab
+* MongoDB (persistent experiment storage)
 * BSON ObjectId indexing
+* ReportLab (PDF generation)
 
-This ensures that every evaluation can be reconstructed and verified post hoc.
+All evaluations are reconstructable post hoc.
 
 ---
 
-## 9. OCR & Cheque Verification Subsystem
+## 10. OCR & Cheque Verification Subsystem
 
-For cheque-specific workflows, Fincheck integrates:
+For cheque workflows, Fincheck integrates:
 
-* Classical OCR (Tesseract)
+* Tesseract OCR for digit and text extraction
 * Rule-based numeric and word parsing
-* YOLO-based fallback detection for amount-in-words regions
+* Structured amount validation
+* YOLO-based fallback detection for amount-in-words region
 
-This hybrid design reduces silent OCR failures and improves robustness in real-world cheque scans.
+The hybrid architecture prevents silent OCR mismatches and improves robustness under real-world cheque variability.
 
 ---
 
-## 10. Visualization & Interaction Layer
+## 11. Visualization & Interaction Layer
 
-The frontend acts as an **experiment control panel**, not a decision authority.
+The frontend serves as an **experiment control interface**, not a decision authority.
 
 ### Capabilities
 
 * Single image validation
 * Dataset benchmarking
+* MNIST vs CIFAR comparison
 * Stress parameter tuning
-* Confidence threshold control
+* Confidence threshold adjustment
 * Risk-based model sorting
 * Preprocessed image preview
-* PDF report download
+* PDF report export
 
-### Design Principle
+### Architectural Constraint
 
-All decisions originate from the backend.
-The frontend is intentionally **non-authoritative** to preserve evaluation integrity.
+All authoritative decisions originate from the backend to preserve evaluation integrity.
 
 ---
 
-## 11. Reproducibility & Determinism
+## 12. Reproducibility & Determinism
 
-The architecture enforces reproducibility through:
+Fincheck enforces strict reproducibility via:
 
 * Fixed random seeds
 * Deterministic CUDA settings
 * Explicit model loading
-* Dataset versioning
-* Database-backed experiment logging
+* Dataset version control
+* MongoDB-backed experiment logging
+* Controlled perturbation injection
 
-This enables consistent benchmarking and fair comparison across runs.
+This guarantees consistent benchmarking across runs and environments.
 
 ---
 
-## 12. Architectural Design Principles
+## 13. Architectural Design Principles
 
 Fincheck is guided by the following principles:
 
 * Safety over accuracy
-* Rejection over risky acceptance
+* Rejection over risky prediction
+* Explicit uncertainty modeling
 * Explainability over opacity
 * Auditability over convenience
 * Research reproducibility over ad-hoc experimentation
+* Policy learning over static thresholding
 
 ---
 
-## 13. Summary
+## 14. Architectural Summary
 
-Fincheck’s architecture is intentionally conservative, risk-aware, and auditable.
-It transforms handwritten digit recognition from a prediction task into a **decision and risk evaluation problem**, making it suitable for **financial document processing and robustness research**.
+Fincheck transforms handwritten digit recognition from a classification task into a **risk-calibrated decision system**.
 
-The modular design supports both **academic experimentation** and **real-world deployment readiness**.
+Its architecture integrates:
 
+* Structured preprocessing
+* Canonical digit enforcement
+* Multi-model comparative inference
+* Financial risk quantification
+* Evolutionary policy optimization
+* Audit-grade persistence
 
+The result is a modular, conservative, and defensible framework suitable for:
+
+* Financial document validation
+* Robustness benchmarking
+* Distribution-shift analysis
+* Risk-aware machine learning research
+
+Fincheck is not merely a predictor — it is a **calibrated decision engine for financial safety.**

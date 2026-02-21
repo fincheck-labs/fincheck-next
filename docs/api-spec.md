@@ -1,32 +1,53 @@
-#  API Specification Sheet
+# 📘 Fincheck API Specification
 
-**Project:** MNIST & CIFAR Model Evaluation, OCR & Cheque Verification Service
-**Base URL:** `http://<host>:<port>`
-**Content Type:** `multipart/form-data` (for file uploads), `application/json` (responses)
+**Confidence-Aware Cheque Digit Validation & Financial Risk Evaluation Service**
 
 ---
 
+## Base Configuration
 
-## 🔹 2. Run Single Image Inference (MNIST)
+**Base URL:**
+
+```
+http://<host>:<port>
+```
+
+**Content Types:**
+
+* `multipart/form-data` → file uploads
+* `application/json` → responses
+* `application/pdf` → PDF export
+
+---
+
+# 1️⃣ Risk Evaluation Endpoints
+
+---
+
+# 1.1 Run Single Image Evaluation
 
 ### **POST** `/run`
 
-Runs inference on **one handwritten digit image** with optional stress testing.
+Runs MNIST inference on a single digit image using all compressed models and applies Evolutionary Risk Optimization (ERO).
 
-#### Request
+---
+
+## Request
 
 **Content-Type:** `multipart/form-data`
 
-| Field            | Type    | Required | Description                  |
-| ---------------- | ------- | -------- | ---------------------------- |
-| `image`          | File    | ✅        | Grayscale or RGB digit image |
-| `expected_digit` | Integer | ✅        | Ground truth digit (0–9)     |
-| `blur`           | Float   | ❌        | Gaussian blur intensity      |
-| `rotation`       | Float   | ❌        | Rotation angle (degrees)     |
-| `noise`          | Float   | ❌        | Gaussian noise std           |
-| `erase`          | Float   | ❌        | Random erasing percentage    |
+| Field            | Type    | Required | Description             |
+| ---------------- | ------- | -------- | ----------------------- |
+| `image`          | File    | ✅        | Digit image             |
+| `expected_digit` | Integer | ✅        | Ground truth (0–9)      |
+| `blur`           | Float   | ❌        | Gaussian blur           |
+| `rotation`       | Float   | ❌        | Rotation (degrees)      |
+| `noise`          | Float   | ❌        | Gaussian noise std      |
+| `erase`          | Float   | ❌        | Random erase percentage |
 
-#### Response
+---
+
+## Response
 
 ```json
 {
@@ -34,27 +55,59 @@ Runs inference on **one handwritten digit image** with optional stress testing.
 }
 ```
 
+Result is stored in MongoDB collection:
+
+```
+model_results
+```
+
+Stored structure:
+
+```json
+{
+  "data": {
+    "MNIST": { ...model metrics... },
+    "ea_optimization": { ...ERO result... }
+  },
+  "meta": {
+    "evaluation_type": "SINGLE",
+    "expected_digit": 5,
+    "stress_applied": false
+  }
+}
+```
+
 ---
 
-## 🔹 3. Run Dataset Evaluation (MNIST + CIFAR)
+# 1.2 Run Dataset Benchmarking
 
 ### **POST** `/run-dataset`
 
-Runs batch evaluation on predefined datasets.
+Runs batch evaluation on MNIST and CIFAR datasets with optional stress perturbations.
 
-#### Request
+Includes:
+
+* Static baseline (α = 0.5)
+* Evolutionary Risk Optimization (ERO)
+* Cross-dataset comparison
+
+---
+
+## Request
 
 **Content-Type:** `multipart/form-data`
 
-| Field          | Type   | Required | Description        |
-| -------------- | ------ | -------- | ------------------ |
-| `dataset_name` | String | ✅        | Dataset identifier |
-| `blur`         | Float  | ❌        | Gaussian blur      |
-| `rotation`     | Float  | ❌        | Rotation angle     |
-| `noise`        | Float  | ❌        | Noise std          |
-| `erase`        | Float  | ❌        | Random erase pct   |
+| Field          | Type   | Required |
+| -------------- | ------ | -------- |
+| `dataset_name` | String | ✅        |
+| `blur`         | Float  | ❌        |
+| `rotation`     | Float  | ❌        |
+| `noise`        | Float  | ❌        |
+| `erase`        | Float  | ❌        |
 
-#### Supported `dataset_name`
+---
+
+## Supported MNIST Dataset Names
 
 * `MNIST_100`
 * `MNIST_500`
@@ -64,7 +117,11 @@ Runs batch evaluation on predefined datasets.
 * `MNIST_NOISY_BLUR_100`
 * `MNIST_NOISY_BLUR_500`
 
-#### Response
+CIFAR evaluation is automatically performed (first 1000 test samples).
+
+---
+
+## Response
 
 ```json
 {
@@ -72,42 +129,24 @@ Runs batch evaluation on predefined datasets.
 }
 ```
 
----
-
-## 🔹 4. Fetch Stored Results
-
-### **GET** `/results/{id}`
-
-Fetches evaluation results from MongoDB.
-
-#### Path Parameter
-
-| Name | Type   | Description      |
-| ---- | ------ | ---------------- |
-| `id` | String | MongoDB ObjectId |
-
-#### Response (Simplified)
+Stored structure:
 
 ```json
 {
-  "_id": "65b9e6a8c1e9a0d7a9c312ac",
   "data": {
-    "MNIST": {
-      "kd_mnist.pth": {
-        "latency_ms": 1.42,
-        "confidence_percent": 97.8,
-        "entropy": 0.12,
-        "stability": 0.31,
-        "evaluation": {
-          "FAR": 0.012,
-          "FRR": 0.018,
-          "risk_score": 0.015
-        }
-      }
+    "MNIST": { ... },
+    "CIFAR": { ... },
+    "ea_optimization": {
+      "MNIST": { ... },
+      "CIFAR": { ... }
     },
-    "CIFAR": { }
+    "static_baseline": {
+      "MNIST_best_model": "...",
+      "CIFAR_best_model": "..."
+    }
   },
   "meta": {
+    "evaluation_type": "DATASET",
     "dataset_type": "MNIST_100",
     "stress_applied": false
   }
@@ -116,60 +155,114 @@ Fetches evaluation results from MongoDB.
 
 ---
 
-## 🔹 5. Export PDF Report
+# 1.3 Fetch Stored Results
 
-### **GET** `/export/pdf/{id}`
+### **GET** `/results/{id}`
 
-Exports evaluation results as a **PDF report**.
-
-#### Response
-
-* `Content-Type: application/pdf`
-* Downloadable PDF file
+Fetches full MongoDB document.
 
 ---
 
-## 🔹 6. OCR Verification (Typed vs Image)
+## Response Example
+
+```json
+{
+  "_id": "65b9e6a8c1e9a0d7a9c312ac",
+  "data": {
+    "MNIST": { ... },
+    "CIFAR": { ... }
+  },
+  "meta": { ... }
+}
+```
+
+---
+
+# 1.4 Export Evaluation Report (PDF)
+
+### **GET** `/export/pdf/{id}`
+
+Generates downloadable PDF report from stored results.
+
+---
+
+## Response
+
+* `Content-Type: application/pdf`
+* Downloadable file
+* Filename: `result_<id>.pdf`
+
+PDF includes:
+
+* Metrics tables
+* Confusion matrices
+* Experiment metadata
+
+---
+
+# 2️⃣ Digit & OCR Verification Endpoints
+
+---
+
+# 2.1 OCR Typed vs Image Verification
 
 ### **POST** `/verify`
 
-Verifies typed digits against OCR-extracted digits.
+Compares typed text against OCR-extracted text.
 
-#### Request
+---
 
-**Content-Type:** `multipart/form-data`
+## Request
 
 | Field      | Type   | Required |
 | ---------- | ------ | -------- |
 | `image`    | File   | ✅        |
 | `raw_text` | String | ✅        |
 
-#### Response
+---
+
+## Response
 
 ```json
 {
   "verdict": "VALID_TYPED_TEXT",
   "final_output": "12345",
-  "errors": []
+  "errors": [],
+  "why": "OCR output perfectly matches typed text."
 }
 ```
 
+Possible verdicts:
+
+* `VALID_TYPED_TEXT`
+* `INVALID_OR_AMBIGUOUS`
+
 ---
 
-## 🔹 7. Digit-Only Verification (Cheque-Safe)
+# 2.2 Digit-Only Cheque-Safe Validation
 
 ### **POST** `/verify-digit-only`
 
-Segments digits, normalizes MNIST style, and verifies confidence.
+Performs:
 
-#### Request
+* Stroke enhancement
+* Otsu thresholding
+* Digit segmentation
+* MNIST normalization
+* Confidence-based filtering
+
+---
+
+## Request
 
 | Field                  | Type  | Required         |
 | ---------------------- | ----- | ---------------- |
 | `image`                | File  | ✅                |
 | `confidence_threshold` | Float | ❌ (default 0.90) |
 
-#### Response
+---
+
+## Response
 
 ```json
 {
@@ -180,7 +273,8 @@ Segments digits, normalizes MNIST style, and verifies confidence.
       "position": 1,
       "predicted": "1",
       "confidence": 98.2,
-      "status": "VALID"
+      "status": "VALID",
+      "possible_values": [1, 7, 4]
     }
   ],
   "preview": {
@@ -191,21 +285,38 @@ Segments digits, normalizes MNIST style, and verifies confidence.
 }
 ```
 
+Possible statuses:
+
+* `VALID`
+* `AMBIGUOUS`
+* `INVALID`
+* `ERROR`
+
 ---
 
-## 🔹 8. Extract Cheque Amount (Digits + Words)
+# 2.3 Extract Cheque Amount
 
 ### **POST** `/extract-cheque-amount`
 
-Extracts and verifies cheque amount using **OCR + YOLO fallback**.
+Performs:
 
-#### Request
+1. Full-image OCR
+2. Digit ROI extraction
+3. Word-to-number parsing
+4. Numeric comparison
+5. YOLO fallback detection (if unverified)
+
+---
+
+## Request
 
 | Field  | Type | Required |
 | ------ | ---- | -------- |
 | `file` | File | ✅        |
 
-#### Response
+---
+
+## Response
 
 ```json
 {
@@ -214,41 +325,135 @@ Extracts and verifies cheque amount using **OCR + YOLO fallback**.
   "digits_value": 10000,
   "words_value": 10000,
   "verification_status": "MATCH",
-  "used_yolo_fallback": false
+  "used_yolo_fallback": false,
+  "raw_ocr_text": "...",
+  "digits_roi_ocr": "..."
 }
+```
+
+Possible `verification_status`:
+
+* `MATCH`
+* `MISMATCH`
+* `UNVERIFIED`
+
+---
+
+# 3️⃣ Risk Metrics Definition
+
+For each model:
+
+* Confidence (%)
+* Latency (ms/image)
+* Entropy
+* Stability
+* FAR
+* FRR
+* Risk Score
+
+---
+
+## Base Risk Formula
+
+```
+Risk = α · FAR + (1 − α) · FRR
+```
+
+Default baseline:
+
+```
+α = 0.5
 ```
 
 ---
 
-## 🔹 9. Risk & Evaluation Metrics
+# 4️⃣ Evolutionary Risk Optimization (ERO)
 
-### Computed Metrics
+For dataset runs:
 
-* **Confidence (%)**
-* **Latency (ms/image)**
-* **Entropy**
-* **Stability**
-* **FAR (False Accept Rate)**
-* **FRR (False Reject Rate)**
-* **Risk Score = α·FAR + β·FRR**
+Returns:
+
+```json
+{
+  "alpha": 0.53,
+  "beta": 0.47,
+  "best_model": "kd_mnist.pth",
+  "scores": {
+    "baseline_mnist.pth": 0.0213,
+    "kd_mnist.pth": 0.0152
+  },
+  "history": {
+    "alpha": [...],
+    "fitness": [...],
+    "diversity": [...]
+  },
+  "generations_used": 37
+}
+```
+
+ERO Characteristics:
+
+* Tournament selection
+* Adaptive Gaussian mutation
+* Elitism
+* Diversity injection
+* Stagnation recovery
+* Adaptive termination
 
 ---
 
-## 🔹 10. Error Codes
+# 5️⃣ Error Codes
 
-| Status | Meaning                   |
-| ------ | ------------------------- |
-| 400    | Invalid request / dataset |
-| 404    | Result not found          |
-| 500    | Internal server error     |
-
----
-
-## 🔹 11. Storage
-
-* **Database:** MongoDB Atlas
-* **Collection:** `model_results`
-* **Stored:** Metrics, confusion matrices, metadata, timestamps
+| Code | Meaning                    |
+| ---- | -------------------------- |
+| 400  | Invalid dataset or request |
+| 404  | Result not found           |
+| 500  | Internal server error      |
 
 ---
 
+# 6️⃣ Storage Schema
+
+**MongoDB Database:** `fintech-auth`
+**Collection:** `model_results`
+
+Stored:
+
+* MNIST results
+* CIFAR results
+* Confusion matrices
+* ERO outputs
+* Static baseline
+* Metadata
+* Timestamp
+
+---
+
+# 7️⃣ Endpoint Classification
+
+| Category          | Endpoints                |
+| ----------------- | ------------------------ |
+| Risk Evaluation   | `/run`, `/run-dataset`   |
+| Result Retrieval  | `/results/{id}`          |
+| Reporting         | `/export/pdf/{id}`       |
+| OCR Validation    | `/verify`                |
+| Cheque-Safe Digit | `/verify-digit-only`     |
+| Amount Extraction | `/extract-cheque-amount` |
+
+---
+
+# 8️⃣ API Safety Model
+
+Fincheck APIs are:
+
+* Confidence-calibrated
+* Risk-aware
+* Financially interpretable
+* Refusal-capable
+* Audit-enabled
+* Reproducible
+
+---
+
+**Fincheck is not an OCR demo.**
+It is a risk-aware digit validation framework for financial systems.
