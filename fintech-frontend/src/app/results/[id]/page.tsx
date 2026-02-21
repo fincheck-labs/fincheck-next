@@ -155,7 +155,7 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: any[] 
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="bg-white border border-gray-300 shadow-lg rounded-lg p-4 min-w-[180px]">
+      <div className="bg-white border border-gray-300 shadow-lg rounded-lg p-4 min-w-45">
         <div className="font-bold text-sm text-gray-800 mb-2 truncate">
           {data.name}
         </div>
@@ -435,7 +435,7 @@ const StatisticalSignificanceSection = ({ stats }: { stats: any }) => {
   const pValueSig = stats.paired_ttest?.p_value < 0.05 || stats.wilcoxon?.p_value < 0.05
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border rounded-xl p-8 space-y-6">
+    <div className="bg-linear-to-r from-blue-50 to-indigo-50 border rounded-xl p-8 space-y-6">
       <h2 className="text-2xl font-bold text-blue-900 flex items-center gap-3">
         📊 Statistical Significance Testing
       </h2>
@@ -519,7 +519,7 @@ const AblationStudySection = ({ ablation }: { ablation: any }) => {
   const colors = ['#f59e0b', '#f59e0b', '#f59e0b', '#ef4444']
 
   return (
-    <div className="bg-gradient-to-r from-emerald-50 to-green-50 border rounded-xl p-8 space-y-6">
+    <div className="bg-linear-to-r from-emerald-50 to-green-50 border rounded-xl p-8 space-y-6">
       <h2 className="text-2xl font-bold text-emerald-900 flex items-center gap-3">
         🧪 Ablation Study: Alpha Evolution Impact
       </h2>
@@ -552,7 +552,7 @@ const AblationStudySection = ({ ablation }: { ablation: any }) => {
             )}
           </div>
         </div>
-        <div className="bg-gradient-to-br from-red-50 to-red-100 p-5 rounded-xl border-2 border-red-200">
+        <div className="bg-linear-to-br from-red-50 to-red-100 p-5 rounded-xl border-2 border-red-200">
           <h4 className="font-semibold mb-3 text-red-900">EA Optimized</h4>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
@@ -579,7 +579,7 @@ const CrossDatasetSection = ({ crossData, hasCifar }: { crossData: any; hasCifar
   if (!crossData || !hasCifar) return null
 
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-violet-50 border rounded-xl p-8 space-y-6">
+    <div className="bg-linear-to-r from-purple-50 to-violet-50 border rounded-xl p-8 space-y-6">
       <h2 className="text-2xl font-bold text-purple-900 flex items-center gap-3">
         🌐 Cross-Dataset Generalization
       </h2>
@@ -614,7 +614,7 @@ const CrossDatasetSection = ({ crossData, hasCifar }: { crossData: any; hasCifar
             </div>
           </div>
         </div>
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-xl border shadow-sm">
+        <div className="bg-linear-to-br from-green-50 to-emerald-50 p-6 rounded-xl border shadow-sm">
           <h4 className="font-semibold mb-4 text-emerald-800">🏆 Generalization Verdict</h4>
           <div className="text-3xl font-bold text-emerald-700 mb-2">EA Adapts Better</div>
           <p className="text-sm text-emerald-800">
