@@ -112,16 +112,16 @@ export default function DigitVerifyPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-4 md:p-8">
+    <main className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-emerald-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center pt-8 pb-12">
           <div className="inline-flex items-center gap-4 bg-white/90 backdrop-blur-xl px-8 py-6 rounded-3xl shadow-2xl border border-white/60 mb-8">
-            <div className="p-4 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-2xl shadow-lg">
+            <div className="p-4 bg-linear-to-r from-emerald-500 to-blue-600 rounded-2xl shadow-lg">
               <Zap className="w-10 h-10 text-white drop-shadow-lg" />
             </div>
             <div>
-              <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-slate-900 via-gray-800 to-slate-700 bg-clip-text text-transparent leading-tight">
+              <h1 className="text-4xl md:text-5xl font-black bg-linear-to-r from-slate-900 via-gray-800 to-slate-700 bg-clip-text text-transparent leading-tight">
                 Image Verification
               </h1>
               <p className="text-lg md:text-xl text-slate-600 mt-2 font-medium">Image digit verification with confidence analysis</p>
@@ -145,7 +145,7 @@ export default function DigitVerifyPage() {
                   <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg transition-all duration-300 ring-4 ring-white/50 ${
                     file 
                       ? "bg-emerald-500/90 text-white shadow-emerald-500/25 scale-110" 
-                      : "bg-gradient-to-br from-emerald-500 to-blue-500 text-white hover:scale-110 shadow-blue-500/25"
+                      : "bg-linear-to-br from-emerald-500 to-blue-500 text-white hover:scale-110 shadow-blue-500/25"
                   }`}>
                     {file ? (
                       <CheckCircle className="w-12 h-12 drop-shadow-lg" />
@@ -209,8 +209,8 @@ export default function DigitVerifyPage() {
             {/* Confidence Slider */}
             <div className="bg-white/90 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/60">
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-5 h-5 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-2xl shadow-lg ring-2 ring-white" />
-                <h3 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                <div className="w-5 h-5 bg-linear-to-r from-emerald-500 to-blue-500 rounded-2xl shadow-lg ring-2 ring-white" />
+                <h3 className="text-2xl font-bold bg-linear-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
                   Confidence Threshold
                 </h3>
               </div>
@@ -229,10 +229,10 @@ export default function DigitVerifyPage() {
                   step={1}
                   value={threshold}
                   onChange={(e) => setThreshold(Number(e.target.value))}
-                  className="w-full h-3 bg-gradient-to-r from-slate-200 to-slate-300 rounded-2xl appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-600 shadow-inner transition-all duration-300"
+                  className="w-full h-3 bg-linear-to-r from-slate-200 to-slate-300 rounded-2xl appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-600 shadow-inner transition-all duration-300"
                 />
                 
-                <div className="grid grid-cols-2 gap-4 text-xs bg-gradient-to-r from-emerald-50 to-amber-50 p-4 rounded-2xl border border-emerald-100/50">
+                <div className="grid grid-cols-2 gap-4 text-xs bg-linear-to-r from-emerald-50 to-amber-50 p-4 rounded-2xl border border-emerald-100/50">
                   <div className="text-emerald-700 font-semibold flex items-center gap-2">
                     <CheckCircle className="w-4 h-4" />
                     Accept: {threshold}%+
@@ -252,7 +252,7 @@ export default function DigitVerifyPage() {
               className={`group w-full py-5 px-8 rounded-3xl font-bold text-xl shadow-2xl transition-all duration-300 flex items-center justify-center gap-4 transform hover:-translate-y-2 active:translate-y-0 ${
                 !file || loading
                   ? "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border-2 border-slate-200"
-                  : "bg-gradient-to-r from-emerald-600 via-emerald-500 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white hover:shadow-3xl hover:shadow-emerald-500/25 hover:ring-4 ring-emerald-500/30"
+                  : "bg-linear-to-r from-emerald-600 via-emerald-500 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white hover:shadow-3xl hover:shadow-emerald-500/25 hover:ring-4 ring-emerald-500/30"
               }`}
             >
               {loading ? (
@@ -276,10 +276,10 @@ export default function DigitVerifyPage() {
                 {/* Verdict Card */}
                 <div className={`p-10 rounded-3xl shadow-2xl border-8 transition-all duration-700 group hover:shadow-3xl ${
                   result.verdict === "VALID" 
-                    ? "bg-gradient-to-br from-emerald-50 to-emerald-25 border-emerald-300 ring-4 ring-emerald-200/50" 
+                    ? "bg-linear-to-br from-emerald-50 to-emerald-25 border-emerald-300 ring-4 ring-emerald-200/50" 
                     : result.verdict === "AMBIGUOUS"
-                    ? "bg-gradient-to-br from-amber-50 to-amber-25 border-amber-300 ring-4 ring-amber-200/50" 
-                    : "bg-gradient-to-br from-red-50 to-red-25 border-red-300 ring-4 ring-red-200/50"
+                    ? "bg-linear-to-br from-amber-50 to-amber-25 border-amber-300 ring-4 ring-amber-200/50" 
+                    : "bg-linear-to-br from-red-50 to-red-25 border-red-300 ring-4 ring-red-200/50"
                 }`}>
                   <div className="flex items-start gap-6">
                     {result.verdict === "VALID" && (
@@ -318,7 +318,7 @@ export default function DigitVerifyPage() {
                         { src: result.preview.normalized, title: "28×28 Normalized", desc: "AI model input", icon: Brain }
                       ].map((img, i) => (
                         <div key={i} className="group hover:scale-[1.05] transition-all duration-300 hover:shadow-2xl">
-                          <div className="bg-gradient-to-br from-slate-50 to-white p-6 rounded-2xl border-2 border-slate-100 hover:border-emerald-200 group-hover:shadow-xl transition-all">
+                          <div className="bg-linear-to-br from-slate-50 to-white p-6 rounded-2xl border-2 border-slate-100 hover:border-emerald-200 group-hover:shadow-xl transition-all">
                             <div className="w-full h-48 flex items-center justify-center bg-slate-50 rounded-xl overflow-hidden shadow-inner">
                               <img 
                                 src={imgSrc(img.src)} 
