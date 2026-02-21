@@ -76,10 +76,9 @@ flowchart TD
     E --> F
     F --> G
     G --> H
-```
+````
 
-### **Purpose**
-
+**Purpose:**
 Safely validate handwritten digits by rejecting low-confidence or ambiguous predictions instead of guessing.
 
 ---
@@ -146,9 +145,18 @@ flowchart TD
     H --> I
     I --> F
 ```
+flowchart LR
+    A[Initialize α Population]
+    B[Evaluate Risk Fitness]
+    C[Tournament Selection]
+    D[Crossover]
+    E[Mutation]
+    F[Elitism]
+    G[Convergence Check]
 
-### **Purpose**
-
+    A --> B --> C --> D --> E --> F --> G
+    G -->|Not Converged| B
+**Purpose:**
 Verify cheque amounts by cross-checking numeric and written values with a safe fallback mechanism.
 
 ---
@@ -294,394 +302,878 @@ Risk = 0.5 × FAR + 0.5 × FRR
 Lower risk score is preferred over higher accuracy.
 
 ---
-# Evolutionary Risk Optimization Framework
----
+Evolutionary Risk Optimization Framework
+1. Motivation
 
-## 1. Why This Exists (Simple Explanation)
+Traditional model selection relies on accuracy.
+However, in financial systems, accuracy alone is insufficient.
 
-Most machine learning systems choose the “best” model using **accuracy**.
+Two models can have identical accuracy but drastically different:
 
-In financial systems, this is dangerous.
+False Accept Rates (FAR)
 
-Two models can both have 98% accuracy, but:
+False Reject Rates (FRR)
 
-* One may wrongly accept fraudulent digits (high FAR → fraud risk)
-* Another may wrongly reject valid digits (high FRR → operational friction)
+In cheque validation systems:
 
-In cheque verification, **a wrong acceptance can cost money**.
-A wrong rejection only causes inconvenience.
+False Accept (FAR) → Fraud risk
 
-Therefore, Fincheck does not select models by accuracy.
-It selects models by **financial risk calibration**.
+False Reject (FRR) → Operational friction
 
-To do this, it learns how much importance to give to:
+Therefore, Fincheck does not select models based on accuracy.
 
-* Fraud prevention (FAR)
-* Operational smoothness (FRR)
+Instead, it formulates model selection as a continuous risk optimization problem.
 
-This importance weight is called: **alpha**
+2. Risk Formulation
 
-And instead of choosing it manually, Fincheck **learns it automatically using an Evolutionary Algorithm**.
+For each model 
+𝑚
+m:
 
----
+𝑅
+𝑚
+(
+𝛼
+)
+=
+𝛼
+⋅
+𝐹
+𝐴
+𝑅
+𝑚
++
+(
+1
+−
+𝛼
+)
+⋅
+𝐹
+𝑅
+𝑅
+𝑚
+R
+m
+	​
 
-## 2. What Is Being Optimized?
+(α)=α⋅FAR
+m
+	​
 
-For each model ( m ), we define a weighted financial risk:
-```
-R_m(alpha) = alpha · FAR_m + (1 - alpha) · FRR_m
-```
++(1−α)⋅FRR
+m
+	​
+
 
 Where:
 
-* FAR = False Accept Rate (fraud risk)
-* FRR = False Reject Rate (operational rejection cost)
-- alpha ∈ (0, 1), where alpha is the risk weighting parameter  
-- beta = 1 − alpha
+𝐹
+𝐴
+𝑅
+𝑚
+FAR
+m
+	​
 
-In simple words:
+ = False Accept Rate
 
-If alpha is high → system prioritizes fraud prevention
-If alpha is low → system prioritizes reducing rejections
+𝐹
+𝑅
+𝑅
+𝑚
+FRR
+m
+	​
 
-The goal is:
-```
-alpha* = argmin ( Σ_m R_m(alpha) ),  where alpha ∈ (0,1)
-```
+ = False Reject Rate
+
+𝛼
+∈
+(
+0
+,
+1
+)
+α∈(0,1) = safety weighting parameter
+
+𝛽
+=
+1
+−
+𝛼
+β=1−α
+
+This creates a weighted financial risk score.
+
+3. Why Alpha Must Be Learned
+
+Choosing α manually is:
+
+Arbitrary
+
+Policy-dependent
+
+Dataset-dependent
+
+Potentially biased
+
+Instead of fixing α = 0.5,
+Fincheck learns α automatically using a Genetic Algorithm (GA).
+
+This makes risk calibration:
+
+Data-driven
+
+Adaptive
+
+Reproducible
+
+Explainable
+
+Genetic Algorithm for Risk Calibration
+4. Optimization Objective
+
+We seek:
+
+𝛼
+∗
+=
+arg
+⁡
+min
+⁡
+𝛼
+∈
+(
+0
+,
+1
+)
+∑
+𝑚
+𝑅
+𝑚
+(
+𝛼
+)
+α
+∗
+=arg
+α∈(0,1)
+min
+	​
+
+m
+∑
+	​
+
+R
+m
+	​
+
+(α)
 
 Meaning:
 
-Find the alpha value that minimizes total financial risk across all models.
+Find the α that minimizes total weighted risk across all models.
 
----
+This converts model comparison into a continuous evolutionary optimization problem.
 
-## 3. Why Not Just Use Alpha = 0.5?
+5. Representation
 
-Because:
+Each individual in the population represents:
 
-* Different datasets behave differently
-* Different stress conditions change risk behavior
-* Some models are FAR-heavy, some FRR-heavy
-* A fixed 50-50 policy may be suboptimal
+𝛼
+∈
+(
+0
+,
+1
+)
+α∈(0,1)
 
-So instead of hardcoding policy, Fincheck **learns the safest policy from data**.
+Population example:
 
-This makes the system:
-
-* Adaptive
-* Data-driven
-* Reproducible
-* Auditable
-
----
-
-## 4. What Is an Evolutionary Algorithm? (Simple Explanation)
-
-An Evolutionary Algorithm is inspired by natural selection.
-
-It works like this:
-
-1. Start with random candidate solutions (alpha values).
-2. Evaluate how good each one is (fitness).
-3. Keep the best ones.
-4. Combine them (crossover).
-5. Slightly modify them (mutation).
-6. Repeat until improvement stops.
-
-It automatically searches for the safest financial weighting.
-
----
-
-## 5. Representation (What Is Evolving?)
-
-Each individual in the population is simply:
-
-[
-\alpha \in (0,1)
-]
-
-Example:
-
-```
 Generation 1:
 [0.12, 0.48, 0.63, 0.29, 0.81, ...]
-```
 
-Each number represents a different financial policy.
+Each α value is evaluated using the defined fitness function.
 
----
+6. Fitness Function (Research-Grade Explanation)
 
-## 6. Fitness Function (Exact Backend Logic)
+The raw risk is:
 
-A naïve linear risk:
-```
-Risk(alpha) = alpha * FAR + (1 - alpha) * FRR
-```
+𝑅
+(
+𝛼
+)
+=
+𝛼
+𝐹
+𝐴
+𝑅
++
+(
+1
+−
+𝛼
+)
+𝐹
+𝑅
+𝑅
+R(α)=αFAR+(1−α)FRR
+
+However, naïve linear risk leads to:
+
+Extreme solutions (α = 0 or 1)
+
+Numerical instability
+
+Dominance from scaled metrics
+
+Therefore, Fincheck uses:
+
+6.1 Normalization
+𝐹
+𝐴
+𝑅
+𝑛
+=
+𝐹
+𝐴
+𝑅
+𝐹
+𝐴
+𝑅
++
+𝐹
+𝑅
+𝑅
+FAR
+n
+	​
+
+=
+FAR+FRR
+FAR
+	​
+
+𝐹
+𝑅
+𝑅
+𝑛
+=
+𝐹
+𝑅
+𝑅
+𝐹
+𝐴
+𝑅
++
+𝐹
+𝑅
+𝑅
+FRR
+n
+	​
+
+=
+FAR+FRR
+FRR
+	​
+
+
+This removes magnitude bias.
+
+6.2 Log Compression
+𝛼
+log
+⁡
+(
+𝐹
+𝐴
+𝑅
+𝑛
+)
++
+(
+1
+−
+𝛼
+)
+log
+⁡
+(
+𝐹
+𝑅
+𝑅
+𝑛
+)
+αlog(FAR
+n
+	​
+
+)+(1−α)log(FRR
+n
+	​
+
+)
+
+Log compression:
+
+Reduces domination by outliers
+
+Improves smoothness of search surface
+
+6.3 Regularization
+𝜆
+(
+𝛼
+−
+0.5
+)
+2
+λ(α−0.5)
+2
+
+Encourages interior solutions.
+
+Prevents overfitting toward:
+
+Pure FAR minimization
+
+Pure FRR minimization
+
+6.4 Soft Barrier
+𝛾
+𝛼
++
+𝛾
+1
+−
+𝛼
+α
+γ
+	​
+
++
+1−α
+γ
+	​
+
+
+Prevents α from becoming:
+
+Exactly 0
+
+Exactly 1
+
+This ensures:
+
+• Numerical stability
+• Financial safety balance
+
+Final Fitness
+𝐹
+𝑖
+𝑡
+𝑛
+𝑒
+𝑠
+𝑠
+(
+𝛼
+)
+=
+−
+∑
+𝑚
+[
+𝛼
+log
+⁡
+(
+𝐹
+𝐴
+𝑅
+𝑛
+)
++
+(
+1
+−
+𝛼
+)
+log
+⁡
+(
+𝐹
+𝑅
+𝑅
+𝑛
+)
+]
++
+𝜆
+(
+𝛼
+−
+0.5
+)
+2
++
+Barrier
+Fitness(α)=−
+m
+∑
+	​
+
+[αlog(FAR
+n
+	​
+
+)+(1−α)log(FRR
+n
+	​
+
+)]+λ(α−0.5)
+2
++Barrier
+
+Lower fitness = safer calibration.
+
+Evolutionary Terminology Explained
+7. Generation
+
+A generation consists of:
+
+Evaluate all α candidates
+
+Select parents
+
+Apply crossover
+
+Apply mutation
+
+Preserve elite
+
+Replace population
+
+Each generation refines the α distribution.
+
+8. Population
+
+Population size = 20 (default)
+
+Represents diversity of α candidates.
+
+Large population:
+
+More exploration
+
+Slower convergence
+
+Small population:
+
+Faster convergence
+
+Risk of local minima
+
+9. Tournament Selection (k=3)
+
+Instead of global best selection:
+
+Randomly pick 3 individuals
+
+Select the best among them
+
+Repeat for second parent
+
+Advantages:
+
+Maintains diversity
+
+Avoids premature convergence
+
+Stochastic pressure control
+
+10. Crossover (Biased Recombination)
+
+Child generation:
+
+𝑐
+ℎ
+𝑖
+𝑙
+𝑑
+=
+0.7
+⋅
+𝑏
+𝑒
+𝑡
+𝑡
+𝑒
+𝑟
+_
+𝑝
+𝑎
+𝑟
+𝑒
+𝑛
+𝑡
++
+0.3
+⋅
+𝑜
+𝑡
+ℎ
+𝑒
+𝑟
+_
+𝑝
+𝑎
+𝑟
+𝑒
+𝑛
+𝑡
+child=0.7⋅better_parent+0.3⋅other_parent
+
+This:
+
+Encourages exploitation of good solutions
+
+Preserves genetic diversity
+
+Smoothly interpolates α values
+
+11. Mutation
+
+Mutation introduces Gaussian noise:
+
+𝛼
+′
+=
+𝛼
++
+𝑁
+(
+0
+,
+𝜎
+)
+α
+′
+=α+N(0,σ)
+
 Where:
 
-FAR = False Accept Rate
+𝜎
+=
+𝜎
+𝑏
+𝑎
+𝑠
+𝑒
+⋅
+(
+1
+−
+𝑔
+𝑒
+𝑛
+𝑒
+𝑟
+𝑎
+𝑡
+𝑖
+𝑜
+𝑛
+𝑚
+𝑎
+𝑥
+_
+𝑔
+𝑒
+𝑛
+𝑒
+𝑟
+𝑎
+𝑡
+𝑖
+𝑜
+𝑛
+𝑠
+)
+σ=σ
+base
+	​
 
-FRR = False Reject Rate
+⋅(1−
+max_generations
+generation
+	​
 
-alpha ∈ (0,1)
+)
 
-can collapse to extreme solutions (0 or 1).
-
-To prevent instability, Fincheck applies:
-
----
-
-### 6.1 Normalization
-
-For each model:
-```
-FAR_n = FAR / (FAR + FRR)
-```
-- Removes magnitude dominance between FAR and FRR.
-```
-FRR_n = FRR / (FAR + FRR)
-```
-- Ensures FAR and FRR are scale-balanced.
-- 
-Why?
-
-To prevent one metric from dominating purely due to scale.
-
----
-
-### 6.2 Log Compression
-
-Instead of linear weighting:
-```
-alpha * log(FAR_n + epsilon) + (1 - alpha) * log(FRR_n + epsilon)
-```
-Where:
-
-- epsilon = small constant (1e-8) for numerical stability
-
--log() smooths extreme dominance
-
-Why?
-
-* Reduces extreme domination
-* Smooths optimization landscape
-* Stabilizes evolution
-
-The negative sum becomes the minimization objective.
-
----
-
-### 6.3 Interior Regularization
-```
-(alpha - 0.5)^2
-```
-Encourages balanced solutions.
-Prevents full collapse to fraud-only or reject-only policy.
-
----
-
-### 6.4 Soft Boundary Barrier
-```
-0.05 / alpha + 0.05 / (1 - alpha)
-```
-
-Prevents alpha from becoming exactly 0 or 1.
-
-Why?
-
-Because extreme policies are financially unsafe.
-
----
-
-### Final Fitness Used in Code
-
-```
-Fitness(alpha) =- sum_over_models [ alpha * log(FAR_n + epsilon) + (1 - alpha) * log(FRR_n + epsilon) ] + (alpha - 0.5)^2 + (0.05 / alpha + 0.05 / (1 - alpha))
-```
-
-Lower fitness = safer financial calibration.
-
----
-
-## 7. Evolutionary Mechanics (How It Works)
-
-### 7.1 Tournament Selection (k = 3)
-
-* Randomly pick 3 candidates
-* Keep the best
-* Repeat
-
-Why?
-
-Maintains diversity while favoring better solutions.
-
----
-
-### 7.2 Crossover
-
-```
-child = 0.7 * better_parent + 0.3 * other_parent
-```
-
-Why?
-
-Smooth interpolation between financial policies.
-
----
-
-### 7.3 Mutation
-
-Mutation equation:
-
-```
-alpha' = alpha + N(0, sigma)
-```
-
-Sigma decreases over generations:
+Meaning:
 
 Early → exploration
-Late → fine tuning
+Late → fine-tuning
 
-Mutation rate = 15%
+Mutation prevents stagnation.
 
----
+12. Elitism
 
-### 7.4 Elitism
+Top 4 individuals are preserved unchanged.
 
-Top 4 individuals survive unchanged.
+Guarantees:
 
-Why?
+Best solution is never lost
 
-Prevents losing best solution.
+Monotonic convergence behavior
 
----
+13. Diversity Pressure
 
-### 7.5 Diversity Injection
+If:
 
-If population becomes too similar:
+𝑠
+𝑡
+𝑑
+(
+𝑝
+𝑜
+𝑝
+𝑢
+𝑙
+𝑎
+𝑡
+𝑖
+𝑜
+𝑛
+)
+<
+𝑡
+ℎ
+𝑟
+𝑒
+𝑠
+ℎ
+𝑜
+𝑙
+𝑑
+std(population)<threshold
 
-Inject random alphas.
+Then:
 
-Prevents local minima.
+Inject random α values.
 
----
+Prevents:
 
-### 7.6 Stagnation Recovery
+Population collapse
 
-If no improvement for multiple generations:
+Local minimum entrapment
 
-Force additional mutation.
+14. Stagnation Recovery
 
-Restores exploration.
+If no improvement for N generations:
 
----
+Apply extra mutation
 
-### 7.7 Adaptive Stopping
+Reset stagnation counter
+
+Ensures continuous exploration.
+
+15. Adaptive Termination
+
+Instead of fixed generations:
 
 Stop when:
 
-* Improvement is below tolerance
-* AND stagnation persists
+∣
+𝐹
+𝑖
+𝑡
+𝑛
+𝑒
+𝑠
+𝑠
+𝑛
+𝑒
+𝑤
+−
+𝐹
+𝑖
+𝑡
+𝑛
+𝑒
+𝑠
+𝑠
+𝑜
+𝑙
+𝑑
+∣
+<
+𝜖
+∣Fitness
+new
+	​
 
-No fixed generation count.
+−Fitness
+old
+	​
 
-Stops when converged.
+∣<ϵ
 
----
+AND stagnation persists.
 
-## 8. What Does the Algorithm Output?
+This makes evolution:
 
-```json
+Data-adaptive
+
+Efficient
+
+Stable
+
+Output Interpretation
+
+The algorithm returns:
+
 {
-  "alpha": 0.72,
-  "beta": 0.28,
-  "best_model": "kd_mnist.pth",
-  "history": {...},
-  "generations_used": 37
+  alpha,
+  beta,
+  best_model,
+  optimized_scores,
+  history: {
+      alpha trajectory,
+      fitness trajectory
+  }
 }
-```
 
 The model minimizing:
-```
-R_opt = alpha* · FAR + (1 - alpha*) · FRR
-```
-gets the **Evolution Best** badge.
 
----
+𝛼
+∗
+𝐹
+𝐴
+𝑅
++
+(
+1
+−
+𝛼
+∗
+)
+𝐹
+𝑅
+𝑅
+α
+∗
+FAR+(1−α
+∗
+)FRR
 
-## 9. What Does Alpha Mean Financially?
+receives the 🚀 Evolution Best badge.
 
-| Alpha Value | Interpretation                |
-| ----------- | ----------------------------- |
-| 0.0         | Reject-focused (minimize FRR) |
-| 1.0         | Fraud-focused (minimize FAR)  |
-| 0.5         | Balanced policy               |
+Relationship to Pareto Frontier
+
+Pareto analysis optimizes:
+
+Accuracy
+
+Risk
+
+Evolution optimizes:
+
+Weighted risk only
+
+If a model:
+
+• Lies on Pareto frontier
+• Minimizes evolved risk
+
+It is considered globally optimal under safety objectives.
+
+Financial Interpretation of Alpha
+Alpha Value	Interpretation
+α ≈ 0	Reject-heavy system (minimize FRR)
+α ≈ 1	Fraud-sensitive system (minimize FAR)
+α ≈ 0.5	Balanced risk
 
 Alpha is not a hyperparameter.
 It is a learned financial policy indicator.
 
+Computational Complexity
+
+For:
+
+Population = P
+
+Generations = G
+
+Models = M
+
+Time Complexity:
+
+𝑂
+(
+𝐺
+⋅
+𝑃
+⋅
+𝑀
+)
+O(G⋅P⋅M)
+
+Since α is scalar, search is lightweight.
+
+Why Evolution Instead of Grid Search?
+Grid Search	Genetic Algorithm
+Discrete	Continuous
+Rigid	Adaptive
+No diversity	Diversity control
+Manual stopping	Convergence detection
+No memory	Elite preservation
+
+Evolution is better suited for:
+
+Non-convex risk surfaces
+
+Financial calibration
+
+Robust safety tuning
+
+Safety Implications
+
+The evolutionary calibration ensures:
+
+• No extreme bias toward FAR or FRR
+• Adaptive risk weighting per dataset
+• Controlled financial exposure
+• Explainable policy tuning
+
+Conceptual Summary
+
+Fincheck’s Evolutionary Risk Optimization:
+
+Transforms model comparison from:
+
+“Which model is most accurate?”
+
+to
+
+“Which model minimizes calibrated financial risk under learned safety policy?”
+
+This makes Fincheck:
+
+• Risk-aware
+• Policy-adaptive
+• Reproducible
+• Financially defensible
+
 ---
 
-## 10. Why This Is Safer Than Accuracy Ranking
-
-Accuracy ignores:
-
-* Fraud exposure
-* Rejection friction
-* Risk trade-offs
-* Financial weighting
-
-Evolutionary risk calibration:
-
-* Learns optimal safety balance
-* Avoids extreme bias
-* Adapts to dataset
-* Produces explainable policy
-
----
-
-## 11. Computational Complexity
-
-If:
-
-* P = population size
-* G = generations used
-* M = number of models
-
-Time complexity:
-
-```
-Computational Complexity: O(G × P × M)
-```
-This means the algorithm’s runtime grows proportionally with:
-- The number of generations (G)
-- The number of candidate alpha values per generation (P)
-- The number of models being evaluated (M)
-
-Since alpha is scalar, optimization is lightweight and fast.
-
----
-
-## 12. Final Conceptual Summary
-
-Fincheck transforms model selection from:
-
-"Which model is most accurate?"
-
-to:
-
-"Which model minimizes calibrated financial risk under a learned safety policy?"
-
-This makes the system:
-
-* Risk-aware
-* Financially defensible
-* Adaptive
-* Explainable
-* Research-grade
-* Production-safe
-
----
 ## Stress Testing (Cheque Simulation)
 
 Runtime perturbations simulate real cheque conditions:
