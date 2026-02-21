@@ -624,6 +624,7 @@ async def run(
 
     # ---------- BUILD DOCUMENT ----------
     doc = {
+         "createdAt": datetime.utcnow(),
         "data": {
             "MNIST": mnist_results,
             "ea_optimization": ea_result
@@ -633,7 +634,6 @@ async def run(
             "source": "IMAGE_UPLOAD",
             "expected_digit": expected_digit,
             "stress_applied": use_stress,
-            "createdAt": datetime.utcnow(),
         }
     }
 
@@ -752,6 +752,7 @@ async def run_dataset(
     # BUILD DOCUMENT
     # ============================================================
     doc = {
+        "createdAt": datetime.utcnow(),
         "data": {
             "MNIST": mnist_results,
             "CIFAR": cifar_results,
@@ -769,7 +770,6 @@ async def run_dataset(
             "dataset_type": dataset_name,
             "num_images": limit,
             "stress_applied": use_stress,
-            "createdAt": datetime.utcnow(),
         }
     }
 
