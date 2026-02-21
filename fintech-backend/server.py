@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from risk_evolution import risk_weight_evolution
 import torch
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
@@ -619,11 +620,13 @@ async def run(
         [tensor_img],
         true_labels=[expected_digit]
     )
+    ea_result = risk_weight_evolution(mnist_results)
 
     # ---------- BUILD DOCUMENT ----------
     doc = {
         "data": {
-            "MNIST": mnist_results
+            "MNIST": mnist_results,
+            "ea_optimization": ea_result
         },
         "meta": {
             "evaluation_type": "SINGLE",
@@ -642,52 +645,53 @@ async def run(
     }
 @app.post("/run-dataset")
 async def run_dataset(
-    dataset_name: str = Form(None),
-
-    # ⭐ STRESS PARAMS
+    dataset_name: str = Form(...),
     blur: float = Form(0),
     rotation: float = Form(0),
     noise: float = Form(0),
     erase: float = Form(0),
 ):
-    # --------------------------------------------------
-    # VALIDATION
-    # --------------------------------------------------
     if not dataset_name:
-        raise HTTPException(400, "dataset_name or zip_file required")
+        raise HTTPException(400, "dataset_name required")
 
-    # --------------------------------------------------
-    # LOAD DATASETS
-    # --------------------------------------------------
+    # ---------------- LOAD DATASETS ----------------
     base = MNIST(root=DATA_DIR, train=False, download=True)
     cifar = CIFAR10(root=DATA_DIR, train=False, download=True)
 
-    # --------------------------------------------------
-    # STRESS FLAG
-    # --------------------------------------------------
     use_stress = blur > 0 or rotation > 0 or noise > 0 or erase > 0
 
-    # --------------------------------------------------
-    # CIFAR PIPELINE
-    # --------------------------------------------------
+    # ============================================================
+    # CIFAR EVALUATION
+    # ============================================================
     cifar_transform = (
         build_cifar_perturbation_transform(
             blur=blur,
             rotation=rotation,
             noise_std=noise
         )
-        if use_stress
-        else CIFAR_CLEAN
+        if use_stress else CIFAR_CLEAN
     )
 
     MAX_CIFAR = 1000
     cifar_imgs = [cifar_transform(cifar[i][0]) for i in range(MAX_CIFAR)]
     cifar_lbls = [cifar[i][1] for i in range(MAX_CIFAR)]
+
     cifar_results = run_batch_cifar(cifar_imgs, cifar_lbls)
 
-    # --------------------------------------------------
-    # MNIST PIPELINE
-    # --------------------------------------------------
+    # Static baseline (alpha = 0.5)
+    cifar_static_scores = {
+        name: model["evaluation"]["risk_score"]
+        for name, model in cifar_results.items()
+    }
+
+    cifar_static_best = min(cifar_static_scores, key=cifar_static_scores.get)
+
+    # EA optimization for CIFAR
+    cifar_ea_result = risk_weight_evolution(cifar_results)
+
+    # ============================================================
+    # MNIST EVALUATION
+    # ============================================================
     if use_stress:
         mnist_transform = build_perturbation_transform(
             blur=blur,
@@ -698,67 +702,70 @@ async def run_dataset(
     else:
         mnist_transform = CLEAN
 
-    # --------------------------------------------------
-    # MNIST DATASET SELECTION
-    # --------------------------------------------------
-    images, labels = [], []
-
+    # Dataset selection
     if dataset_name == "MNIST_100":
         limit = 100
-    elif dataset_name == "MNIST_500":
-        limit = 500
-    elif dataset_name == "MNIST_FULL":
-        limit = len(base)
-    elif dataset_name == "MNIST_NOISY_100":
-        labels = [base[i][1] for i in range(100)]
-        mnist_results = run_noisy_multi_eval(
-            lambda: [NOISY()(base[i][0]) for i in range(100)],
-            true_labels=labels
-        )
-        limit = 100
-    elif dataset_name == "MNIST_NOISY_500":
-        labels = [base[i][1] for i in range(500)]
-        mnist_results = run_noisy_multi_eval(
-            lambda: [NOISY()(base[i][0]) for i in range(500)],
-            true_labels=labels
-        )
-        limit = 500
-    elif dataset_name == "MNIST_NOISY_BLUR_100":
-        labels = [base[i][1] for i in range(100)]
-        mnist_results = run_noisy_multi_eval(
-            lambda: [NOISY_BLUR()(base[i][0]) for i in range(100)],
-            true_labels=labels
-        )
-        limit = 100
-    elif dataset_name == "MNIST_NOISY_BLUR_500":
-        labels = [base[i][1] for i in range(500)]
-        mnist_results = run_noisy_multi_eval(
-            lambda: [NOISY_BLUR()(base[i][0]) for i in range(500)],
-            true_labels=labels
-        )
-        limit = 500
-    else:
-        raise HTTPException(400, "Unknown dataset")
-
-    # --------------------------------------------------
-    # NORMAL MNIST RUN
-    # --------------------------------------------------
-    if not dataset_name.startswith("MNIST_NOISY"):
         images = [mnist_transform(base[i][0]) for i in range(limit)]
         labels = [base[i][1] for i in range(limit)]
         mnist_results = run_batch(images, labels)
 
-    # --------------------------------------------------
+    elif dataset_name == "MNIST_500":
+        limit = 500
+        images = [mnist_transform(base[i][0]) for i in range(limit)]
+        labels = [base[i][1] for i in range(limit)]
+        mnist_results = run_batch(images, labels)
+
+    elif dataset_name == "MNIST_FULL":
+        limit = len(base)
+        images = [mnist_transform(base[i][0]) for i in range(limit)]
+        labels = [base[i][1] for i in range(limit)]
+        mnist_results = run_batch(images, labels)
+
+    elif dataset_name.startswith("MNIST_NOISY"):
+        limit = 100 if "100" in dataset_name else 500
+        labels = [base[i][1] for i in range(limit)]
+
+        if "BLUR" in dataset_name:
+            build_fn = lambda: [NOISY_BLUR()(base[i][0]) for i in range(limit)]
+        else:
+            build_fn = lambda: [NOISY()(base[i][0]) for i in range(limit)]
+
+        mnist_results = run_noisy_multi_eval(
+            build_fn,
+            true_labels=labels
+        )
+    else:
+        raise HTTPException(400, "Unknown dataset")
+
+    # ---------------- STATIC BASELINE (α=0.5) ----------------
+    mnist_static_scores = {
+        name: model["evaluation"]["risk_score"]
+        for name, model in mnist_results.items()
+    }
+
+    mnist_static_best = min(mnist_static_scores, key=mnist_static_scores.get)
+
+    # ---------------- EA OPTIMIZATION ----------------
+    mnist_ea_result = risk_weight_evolution(mnist_results)
+
+    # ============================================================
     # BUILD DOCUMENT
-    # --------------------------------------------------
+    # ============================================================
     doc = {
         "data": {
             "MNIST": mnist_results,
-            "CIFAR": cifar_results
+            "CIFAR": cifar_results,
+            "ea_optimization": {
+                "MNIST": mnist_ea_result,
+                "CIFAR": cifar_ea_result,
+            },
+            "static_baseline": {
+                "MNIST_best_model": mnist_static_best,
+                "CIFAR_best_model": cifar_static_best,
+            }
         },
         "meta": {
             "evaluation_type": "DATASET",
-            "source": "PREBUILT",
             "dataset_type": dataset_name,
             "num_images": limit,
             "stress_applied": use_stress,
@@ -768,14 +775,9 @@ async def run_dataset(
 
     inserted = mongo_results.insert_one(doc)
 
-    # --------------------------------------------------
-    # RETURN ID
-    # --------------------------------------------------
     return {
         "id": str(inserted.inserted_id)
     }
-
-
 # ==================================================
 # OCR
 # ==================================================
