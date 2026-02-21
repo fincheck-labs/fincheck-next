@@ -145,17 +145,6 @@ flowchart TD
     H --> I
     I --> F
 ```
-flowchart LR
-    A[Initialize α Population]
-    B[Evaluate Risk Fitness]
-    C[Tournament Selection]
-    D[Crossover]
-    E[Mutation]
-    F[Elitism]
-    G[Convergence Check]
-
-    A --> B --> C --> D --> E --> F --> G
-    G -->|Not Converged| B
 **Purpose:**
 Verify cheque amounts by cross-checking numeric and written values with a safe fallback mechanism.
 
@@ -302,877 +291,599 @@ Risk = 0.5 × FAR + 0.5 × FRR
 Lower risk score is preferred over higher accuracy.
 
 ---
-Evolutionary Risk Optimization Framework
-1. Motivation
+# Evolutionary Risk Optimization Framework (ERO)
 
-Traditional model selection relies on accuracy.
-However, in financial systems, accuracy alone is insufficient.
+---
 
-Two models can have identical accuracy but drastically different:
+# 1. Motivation
 
-False Accept Rates (FAR)
+Traditional model selection primarily optimizes **classification accuracy**.
+However, in financial systems such as cheque validation and fraud-sensitive environments, accuracy alone is insufficient for safe deployment.
 
-False Reject Rates (FRR)
+Two models may achieve identical accuracy while exhibiting drastically different financial risk exposure in terms of:
+
+* **False Accept Rate (FAR)** — Fraud liability risk
+* **False Reject Rate (FRR)** — Operational friction and customer dissatisfaction
 
 In cheque validation systems:
 
-False Accept (FAR) → Fraud risk
+* High FAR → Direct financial fraud exposure
+* High FRR → Customer inconvenience and operational inefficiency
 
-False Reject (FRR) → Operational friction
+Therefore, Fincheck reformulates model selection as a **financial risk minimization problem**, not merely an accuracy comparison problem.
 
-Therefore, Fincheck does not select models based on accuracy.
+---
 
-Instead, it formulates model selection as a continuous risk optimization problem.
+# 2. Risk Formulation
 
-2. Risk Formulation
+For each model `m`, financial risk is defined as:
 
-For each model 
-𝑚
-m:
-
-𝑅
-𝑚
-(
-𝛼
-)
-=
-𝛼
-⋅
-𝐹
-𝐴
-𝑅
-𝑚
-+
-(
-1
-−
-𝛼
-)
-⋅
-𝐹
-𝑅
-𝑅
-𝑚
-R
-m
-	​
-
-(α)=α⋅FAR
-m
-	​
-
-+(1−α)⋅FRR
-m
-	​
-
+R_m(α) = α · FAR_m + (1 − α) · FRR_m
 
 Where:
 
-𝐹
-𝐴
-𝑅
-𝑚
-FAR
-m
-	​
+* ( FAR_m ) = False Accept Rate of model ( m )
+* ( FRR_m ) = False Reject Rate of model ( m )
+Where:
 
- = False Accept Rate
+- α ∈ (0,1) represents the safety-weighting parameter  
+- β = 1 − α represents the complementary weight
 
-𝐹
-𝑅
-𝑅
-𝑚
-FRR
-m
-	​
+This produces a weighted composite financial risk score reflecting the trade-off between fraud sensitivity and rejection strictness.
 
- = False Reject Rate
+---
 
-𝛼
-∈
-(
-0
-,
-1
-)
-α∈(0,1) = safety weighting parameter
+# 3. Why Alpha Must Be Learned
 
-𝛽
-=
-1
-−
-𝛼
-β=1−α
+Manually selecting ( \alpha ):
 
-This creates a weighted financial risk score.
+* Is arbitrary
+* Is institution-dependent
+* Is dataset-sensitive
+* May introduce hidden bias
 
-3. Why Alpha Must Be Learned
+Rather than fixing ( \alpha = 0.5 ), Fincheck **learns ( \alpha )** using an evolutionary strategy.
 
-Choosing α manually is:
+Thus, risk calibration becomes:
 
-Arbitrary
+* Data-driven
+* Adaptive
+* Reproducible
+* Explainable
 
-Policy-dependent
+Importantly:
 
-Dataset-dependent
+> Alpha is not treated as a hyperparameter — it is treated as a learned financial policy indicator.
 
-Potentially biased
+---
 
-Instead of fixing α = 0.5,
-Fincheck learns α automatically using a Genetic Algorithm (GA).
+# 4. Optimization Objective
 
-This makes risk calibration:
+The evolutionary process solves:
 
-Data-driven
+α* = argmin_{α ∈ (0,1)}  Σ_{m=1}^{M} R_m(α)
 
-Adaptive
+This transforms model comparison into a continuous scalar optimization problem over a financial policy parameter.
 
-Reproducible
+---
 
-Explainable
+# 5. Representation
 
-Genetic Algorithm for Risk Calibration
-4. Optimization Objective
+Each individual in the evolutionary population represents a scalar:
 
-We seek:
+α ∈ (0,1)
 
-𝛼
-∗
-=
-arg
-⁡
-min
-⁡
-𝛼
-∈
-(
-0
-,
-1
-)
-∑
-𝑚
-𝑅
-𝑚
-(
-𝛼
-)
-α
-∗
-=arg
-α∈(0,1)
-min
-	​
+Example initial population:
 
-m
-∑
-	​
-
-R
-m
-	​
-
-(α)
-
-Meaning:
-
-Find the α that minimizes total weighted risk across all models.
-
-This converts model comparison into a continuous evolutionary optimization problem.
-
-5. Representation
-
-Each individual in the population represents:
-
-𝛼
-∈
-(
-0
-,
-1
-)
-α∈(0,1)
-
-Population example:
-
-Generation 1:
+```
 [0.12, 0.48, 0.63, 0.29, 0.81, ...]
+```
 
-Each α value is evaluated using the defined fitness function.
+Each candidate ( \alpha ) is evaluated using a stabilized financial fitness function.
 
-6. Fitness Function (Research-Grade Explanation)
+---
 
-The raw risk is:
+# 6. Stabilized Research-Grade Fitness Function
 
-𝑅
-(
-𝛼
-)
-=
-𝛼
-𝐹
-𝐴
-𝑅
-+
-(
-1
-−
-𝛼
-)
-𝐹
-𝑅
-𝑅
-R(α)=αFAR+(1−α)FRR
+A naïve linear objective:
 
-However, naïve linear risk leads to:
+Weighted Risk = α · FAR + (1 − α) · FRR
 
-Extreme solutions (α = 0 or 1)
+often leads to:
 
-Numerical instability
+* Boundary collapse (α → 0 or 1)
+* Metric dominance
+* Poor numerical stability
 
-Dominance from scaled metrics
+Fincheck therefore introduces stabilization components.
 
-Therefore, Fincheck uses:
+---
 
-6.1 Normalization
-𝐹
-𝐴
-𝑅
-𝑛
-=
-𝐹
-𝐴
-𝑅
-𝐹
-𝐴
-𝑅
-+
-𝐹
-𝑅
-𝑅
-FAR
-n
-	​
+## 6.1 Proper Normalization
 
-=
-FAR+FRR
-FAR
-	​
+Instead of simple ratio normalization, we apply symmetric normalization:
 
-𝐹
-𝑅
-𝑅
-𝑛
-=
-𝐹
-𝑅
-𝑅
-𝐹
-𝐴
-𝑅
-+
-𝐹
-𝑅
-𝑅
-FRR
-n
-	​
+FAR_n = FAR_m / (FAR_m + FRR_m + ε)
 
-=
-FAR+FRR
-FRR
-	​
+where ε > 0 is a small constant introduced to prevent numerical instability.
 
+This normalization:
 
-This removes magnitude bias.
+- Eliminates magnitude bias between FAR and FRR  
+- Produces scale-invariant ratios  
+- Improves convergence stability during optimization
+---
+## 6.2 Logarithmic Compression
 
-6.2 Log Compression
-𝛼
-log
-⁡
-(
-𝐹
-𝐴
-𝑅
-𝑛
-)
-+
-(
-1
-−
-𝛼
-)
-log
-⁡
-(
-𝐹
-𝑅
-𝑅
-𝑛
-)
-αlog(FAR
-n
-	​
+We apply logarithmic compression to stabilize optimization:
 
-)+(1−α)log(FRR
-n
-	​
+L(α) = α · log(FAR_n + ε) + (1 − α) · log(FRR_n + ε)
 
-)
+Where:
+- ε is a small constant to prevent log(0)
 
-Log compression:
+Benefits:
+- Dampens extreme outliers  
+- Smooths the optimization surface  
+- Improves convergence stability  
+- Reduces domination by skewed error distributions
+---
+## 6.3 Interior Regularization
 
-Reduces domination by outliers
+To prevent collapse toward extreme policies, we introduce quadratic regularization:
 
-Improves smoothness of search surface
+λ · (α − 0.5)²
 
-6.3 Regularization
-𝜆
-(
-𝛼
-−
-0.5
-)
-2
-λ(α−0.5)
-2
+Where:
+- λ controls regularization strength
 
-Encourages interior solutions.
+This encourages interior solutions and prevents trivial single-objective dominance.
+---
+## 6.4 Soft Boundary Barrier
 
-Prevents overfitting toward:
+To prevent α from reaching the unstable boundaries 0 or 1, we apply a soft barrier:
 
-Pure FAR minimization
+γ · [ 1 / (α + ε) + 1 / (1 − α + ε) ]
 
-Pure FRR minimization
-
-6.4 Soft Barrier
-𝛾
-𝛼
-+
-𝛾
-1
-−
-𝛼
-α
-γ
-	​
-
-+
-1−α
-γ
-	​
-
-
-Prevents α from becoming:
-
-Exactly 0
-
-Exactly 1
+Where:
+- γ controls barrier intensity  
+- ε prevents division-by-zero  
 
 This ensures:
+- Numerical stability  
+- Balanced financial calibration  
+- Avoidance of degenerate policy collapse
+---
+## Final Fitness Definition
 
-• Numerical stability
-• Financial safety balance
+The complete stabilized objective function is:
 
-Final Fitness
-𝐹
-𝑖
-𝑡
-𝑛
-𝑒
-𝑠
-𝑠
-(
-𝛼
-)
-=
-−
-∑
-𝑚
-[
-𝛼
-log
-⁡
-(
-𝐹
-𝐴
-𝑅
-𝑛
-)
-+
-(
-1
-−
-𝛼
-)
-log
-⁡
-(
-𝐹
-𝑅
-𝑅
-𝑛
-)
+Fitness(α) =
+Σ (over m = 1 to M) [
+  α · log(FAR_n + ε)
+  +
+  (1 − α) · log(FRR_n + ε)
 ]
 +
-𝜆
-(
-𝛼
-−
-0.5
-)
-2
+λ · (α − 0.5)²
 +
-Barrier
-Fitness(α)=−
-m
-∑
-	​
+γ · [ 1 / (α + ε) + 1 / (1 − α + ε) ]
 
-[αlog(FAR
-n
-	​
+Where:
 
-)+(1−α)log(FRR
-n
-	​
+- M = number of models  
+- ε = small constant for numerical stability  
+- λ = interior regularization strength  
+- γ = boundary barrier strength  
 
-)]+λ(α−0.5)
-2
-+Barrier
+Lower fitness → safer calibration.
 
-Lower fitness = safer calibration.
+This objective is:
 
-Evolutionary Terminology Explained
-7. Generation
+* Smooth
+* Differentiable (almost everywhere)
+* Well-conditioned
+* Interior-stable
 
-A generation consists of:
+---
 
-Evaluate all α candidates
+# 7. Evolutionary Algorithm Design
 
-Select parents
+## 7.1 Generation Cycle
 
-Apply crossover
+Each generation performs:
 
-Apply mutation
+1. Fitness evaluation
+2. Tournament selection
+3. Biased crossover
+4. Adaptive mutation
+5. Elite preservation
+6. Population replacement
 
-Preserve elite
+---
 
-Replace population
+## 7.2 Population Size
 
-Each generation refines the α distribution.
+Default: 20
 
-8. Population
+Trade-off:
 
-Population size = 20 (default)
+* Larger population → stronger exploration
+* Smaller population → faster convergence
 
-Represents diversity of α candidates.
+---
 
-Large population:
+## 7.3 Tournament Selection (k = 3)
 
-More exploration
-
-Slower convergence
-
-Small population:
-
-Faster convergence
-
-Risk of local minima
-
-9. Tournament Selection (k=3)
-
-Instead of global best selection:
-
-Randomly pick 3 individuals
-
-Select the best among them
-
-Repeat for second parent
+* Randomly sample 3 individuals
+* Select the best among them
 
 Advantages:
 
-Maintains diversity
+* Maintains diversity
+* Reduces premature convergence
+* Introduces stochastic pressure
 
-Avoids premature convergence
+---
 
-Stochastic pressure control
+## 7.4 Biased Crossover
 
-10. Crossover (Biased Recombination)
+α_child = 0.7 · α_better + 0.3 · α_other
 
-Child generation:
+Encourages exploitation while preserving exploration.
 
-𝑐
-ℎ
-𝑖
-𝑙
-𝑑
-=
-0.7
-⋅
-𝑏
-𝑒
-𝑡
-𝑡
-𝑒
-𝑟
-_
-𝑝
-𝑎
-𝑟
-𝑒
-𝑛
-𝑡
-+
-0.3
-⋅
-𝑜
-𝑡
-ℎ
-𝑒
-𝑟
-_
-𝑝
-𝑎
-𝑟
-𝑒
-𝑛
-𝑡
-child=0.7⋅better_parent+0.3⋅other_parent
+---
+## 7.5 Adaptive Gaussian Mutation
 
-This:
+Mutation is applied as:
 
-Encourages exploitation of good solutions
+α' = α + 𝒩(0, σ)
 
-Preserves genetic diversity
+Where 𝒩(0, σ) is Gaussian noise with mean 0 and standard deviation σ.
 
-Smoothly interpolates α values
+The mutation strength decays over generations:
 
-11. Mutation
-
-Mutation introduces Gaussian noise:
-
-𝛼
-′
-=
-𝛼
-+
-𝑁
-(
-0
-,
-𝜎
-)
-α
-′
-=α+N(0,σ)
+σ = σ_base · (1 − g / G)
 
 Where:
 
-𝜎
-=
-𝜎
-𝑏
-𝑎
-𝑠
-𝑒
-⋅
-(
-1
-−
-𝑔
-𝑒
-𝑛
-𝑒
-𝑟
-𝑎
-𝑡
-𝑖
-𝑜
-𝑛
-𝑚
-𝑎
-𝑥
-_
-𝑔
-𝑒
-𝑛
-𝑒
-𝑟
-𝑎
-𝑡
-𝑖
-𝑜
-𝑛
-𝑠
-)
-σ=σ
-base
-	​
+- σ_base = initial mutation scale  
+- g = current generation  
+- G = total generations  
 
-⋅(1−
-max_generations
-generation
-	​
+This ensures:
 
-)
+- Early generations → larger exploration  
+- Later generations → fine-grained exploitation  
+- Smooth convergence behavior  
+---
 
-Meaning:
-
-Early → exploration
-Late → fine-tuning
-
-Mutation prevents stagnation.
-
-12. Elitism
+## 7.6 Elitism
 
 Top 4 individuals are preserved unchanged.
 
-Guarantees:
+Guarantees monotonic best-fitness improvement.
 
-Best solution is never lost
+---
 
-Monotonic convergence behavior
-
-13. Diversity Pressure
+## 7.7 Diversity Injection
 
 If:
 
-𝑠
-𝑡
-𝑑
-(
-𝑝
-𝑜
-𝑝
-𝑢
-𝑙
-𝑎
-𝑡
-𝑖
-𝑜
-𝑛
-)
-<
-𝑡
-ℎ
-𝑟
-𝑒
-𝑠
-ℎ
-𝑜
-𝑙
-𝑑
-std(population)<threshold
+std(population) < τ
 
-Then:
+Random α values are injected into the population.
 
-Inject random α values.
+Where:
 
-Prevents:
+- std(population) = standard deviation of α values  
+- τ = diversity threshold  
 
-Population collapse
+This mechanism prevents:
 
-Local minimum entrapment
+- Population collapse  
+- Premature convergence  
+- Local minimum entrapment  
+- Loss of genetic diversity  
+---
 
-14. Stagnation Recovery
+## 7.8 Stagnation Recovery
 
-If no improvement for N generations:
+If no improvement persists for K generations:
 
-Apply extra mutation
-
-Reset stagnation counter
-
-Ensures continuous exploration.
-
-15. Adaptive Termination
-
-Instead of fixed generations:
-
-Stop when:
-
-∣
-𝐹
-𝑖
-𝑡
-𝑛
-𝑒
-𝑠
-𝑠
-𝑛
-𝑒
-𝑤
-−
-𝐹
-𝑖
-𝑡
-𝑛
-𝑒
-𝑠
-𝑠
-𝑜
-𝑙
-𝑑
-∣
-<
-𝜖
-∣Fitness
-new
-	​
-
-−Fitness
-old
-	​
-
-∣<ϵ
-
-AND stagnation persists.
-
-This makes evolution:
-
-Data-adaptive
-
-Efficient
-
-Stable
-
-Output Interpretation
-
-The algorithm returns:
-
-{
-  alpha,
-  beta,
-  best_model,
-  optimized_scores,
-  history: {
-      alpha trajectory,
-      fitness trajectory
-  }
-}
-
-The model minimizing:
-
-𝛼
-∗
-𝐹
-𝐴
-𝑅
-+
-(
-1
-−
-𝛼
-∗
-)
-𝐹
-𝑅
-𝑅
-α
-∗
-FAR+(1−α
-∗
-)FRR
-
-receives the 🚀 Evolution Best badge.
-
-Relationship to Pareto Frontier
-
-Pareto analysis optimizes:
-
-Accuracy
-
-Risk
-
-Evolution optimizes:
-
-Weighted risk only
-
-If a model:
-
-• Lies on Pareto frontier
-• Minimizes evolved risk
-
-It is considered globally optimal under safety objectives.
-
-Financial Interpretation of Alpha
-Alpha Value	Interpretation
-α ≈ 0	Reject-heavy system (minimize FRR)
-α ≈ 1	Fraud-sensitive system (minimize FAR)
-α ≈ 0.5	Balanced risk
-
-Alpha is not a hyperparameter.
-It is a learned financial policy indicator.
-
-Computational Complexity
-
-For:
-
-Population = P
-
-Generations = G
-
-Models = M
-
-Time Complexity:
-
-𝑂
-(
-𝐺
-⋅
-𝑃
-⋅
-𝑀
-)
-O(G⋅P⋅M)
-
-Since α is scalar, search is lightweight.
-
-Why Evolution Instead of Grid Search?
-Grid Search	Genetic Algorithm
-Discrete	Continuous
-Rigid	Adaptive
-No diversity	Diversity control
-Manual stopping	Convergence detection
-No memory	Elite preservation
-
-Evolution is better suited for:
-
-Non-convex risk surfaces
-
-Financial calibration
-
-Robust safety tuning
-
-Safety Implications
-
-The evolutionary calibration ensures:
-
-• No extreme bias toward FAR or FRR
-• Adaptive risk weighting per dataset
-• Controlled financial exposure
-• Explainable policy tuning
-
-Conceptual Summary
-
-Fincheck’s Evolutionary Risk Optimization:
-
-Transforms model comparison from:
-
-“Which model is most accurate?”
-
-to
-
-“Which model minimizes calibrated financial risk under learned safety policy?”
-
-This makes Fincheck:
-
-• Risk-aware
-• Policy-adaptive
-• Reproducible
-• Financially defensible
+* Apply additional mutation
+* Reset stagnation counter
 
 ---
+## 7.9 Adaptive Termination
+
+Stop evolution if:
+
+| Fitness_g − Fitness_(g−1) | < ε
+
+AND stagnation persists for a predefined number of generations.
+
+Where:
+
+- Fitness_g = best fitness at generation g  
+- ε = convergence tolerance threshold  
+
+This makes the evolutionary process:
+
+- Efficient  
+- Stable  
+- Data-adaptive  
+- Computationally economical  
+---
+## 7.10 Adaptive Generation Control
+
+Unlike fixed-iteration evolutionary systems, ERO does not rely on a predetermined number of generations.
+
+Instead, the number of generations is **data-driven** and determined dynamically using three mechanisms:
+
+### Convergence Check
+
+Evolution terminates if:
+
+```
+|Fitness_g − Fitness_{g-1}| < ε
+```
+
+for several consecutive generations.
+
+This indicates that improvement has become negligible.
+
+---
+
+###  Stagnation Monitoring
+
+If no improvement in best fitness persists for a predefined number of generations:
+
+```
+stagnation_counter ≥ threshold
+```
+
+the algorithm either:
+
+* Applies mutation recovery, or
+* Terminates if convergence tolerance is satisfied.
+
+---
+
+###  Safety Cap
+
+A maximum generation limit (G_max) exists only as a protective upper bound.
+
+In practice, evolution typically stops earlier due to convergence.
+
+---
+
+###  Resulting Behavior
+
+Generation count becomes:
+
+* Adaptive
+* Dataset-sensitive
+* Computationally efficient
+* Automatically stabilized
+
+The algorithm runs **as long as meaningful improvement exists**, and stops once a stable financial policy (α*) has been learned.
+
+This ensures optimization is neither prematurely terminated nor unnecessarily prolonged.
+
+---
+# 8. Evolutionary Diagnostic Graphs
+
+To ensure interpretability, transparency, and research reproducibility, the Evolutionary Risk Optimization framework generates three primary diagnostic graphs.
+
+These graphs validate convergence behavior, stability, and financial improvement.
+
+---
+
+## 8.1 Alpha Evolution Curve
+
+![Alpha Evolution Curve](screenshots/Alpha.png)
+
+This graph plots:
+
+α_g vs Generation g
+
+Where:
+
+* α_g = best alpha at generation g
+* g = generation index
+
+Purpose:
+
+* Visualizes policy learning dynamics
+* Shows convergence stability
+* Detects oscillation or premature convergence
+* Confirms stabilization of financial weighting
+
+Interpretation:
+
+* Smooth convergence → stable financial calibration
+* Oscillations → high mutation pressure
+* Early plateau → potential local minimum
+
+---
+
+## 8.2 Fitness Evolution Curve
+![Alpha Evolution Curve](screenshots/Fitness.png)
+
+This graph plots:
+
+Fitness_g vs Generation g
+
+Where:
+
+* Fitness_g = best fitness value at generation g
+
+Purpose:
+
+* Demonstrates monotonic risk minimization
+* Validates elitism effectiveness
+* Confirms convergence efficiency
+
+Expected behavior:
+
+* Early sharp decrease → strong initial exploration
+* Gradual flattening → fine-tuning phase
+* Near-zero slope → convergence
+
+---
+
+## 8.3 Risk Reduction Curve
+
+![Alpha Evolution Curve](screenshots/Risk_reduction.png)
+
+This graph measures relative improvement:
+
+Risk Reduction (%) =
+((Fitness_initial − Fitness_g) / |Fitness_initial|) × 100
+
+Purpose:
+
+* Quantifies practical financial improvement
+* Demonstrates real-world risk reduction
+* Makes optimization impact interpretable to stakeholders
+
+This graph translates optimization progress into a financial performance metric.
+
+---
+# 9. Pareto Frontier Analysis
+
+Although scalar optimization is performed, models are additionally analyzed under Pareto optimality.
+### Pareto Dominance Definition
+
+Model A dominates Model B if:
+
+- R_A ≤ R_B  
+- Accuracy_A ≥ Accuracy_B  
+- At least one of the above inequalities is strict  
+
+Where:
+
+- R = composite financial risk  
+- Accuracy = classification accuracy  
+
+A model is Pareto-optimal if no other model dominates it.
+A model is Pareto-optimal if no other model dominates it.
+
+The Pareto graph visualizes:
+
+* Dominated models (grey)
+* Pareto-optimal models (purple)
+* EA-selected model (red)
+
+Global optimality requires:
+
+1. Pareto membership
+2. Minimum evolved risk
+
+---
+
+# 10. Ablation Study
+
+Static alphas (e.g., 0.3, 0.5, 0.7) are compared against evolved ( \alpha^* ).
+
+Empirical observation:
+
+* EA consistently yields lower composite risk
+* Demonstrates benefit of dynamic policy learning
+
+---
+
+# 11. Statistical Significance
+
+Tests included:
+
+* Paired t-test
+* Wilcoxon signed-rank test
+* 95% confidence intervals
+
+If ( p < 0.05 ), improvements are statistically significant.
+
+---
+
+# 12. Cross-Dataset Generalization
+
+Alpha learned on MNIST evaluated on CIFAR.
+
+Results:
+
+* Maintains lower composite risk
+* Demonstrates robustness to distribution shift
+
+Indicates policy transferability.
+
+---
+# 13. Computational Complexity
+
+Let:
+
+- P = population size  
+- G = number of generations  
+- M = number of models  
+
+The overall time complexity is:
+
+O(G · P · M)
+
+Since α is a scalar parameter, the optimization remains computationally lightweight.
+
+Memory complexity is:
+
+O(P)
+
+because only the population of α values is maintained.
+---
+
+# 14. Why Evolution Over Grid Search?
+
+| Grid Search     | Evolutionary Strategy |
+| --------------- | --------------------- |
+| Discrete        | Continuous            |
+| Static          | Adaptive              |
+| No memory       | Elitism               |
+| No diversity    | Diversity control     |
+| Manual stopping | Convergence detection |
+
+Evolution handles non-convex financial landscapes more robustly.
+
+---
+
+# 15. Financial Interpretation of Alpha
+
+| Alpha   | Interpretation                       |
+| ------- | ------------------------------------ |
+| α → 0   | FRR-focused (operational protection) |
+| α → 1   | FAR-focused (fraud protection)       |
+| α ≈ 0.5 | Balanced institutional policy        |
+
+Alpha represents a learned institutional risk posture.
+
+---
+
+# 16. Conceptual Summary
+
+The Evolutionary Risk Optimization framework transforms model selection from:
+
+> “Which model is most accurate?”
+
+to:
+
+> “Which model minimizes calibrated financial risk under a learned safety policy?”
+
+Fincheck becomes:
+
+* Risk-aware
+* Policy-adaptive
+* Statistically defensible
+* Financially robust
+
+---
+
 
 ## Stress Testing (Cheque Simulation)
 
