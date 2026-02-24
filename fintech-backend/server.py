@@ -1065,32 +1065,6 @@ MULTIPLIERS = {
 }
 
 
-def words_to_number(words: str | None) -> int | None:
-    if not words:
-        return None
-
-    words = (
-        words.replace("RUPEES", "")
-             .replace("ONLY", "")
-             .strip()
-    )
-
-    total = 0
-    current = 0
-
-    for token in words.split():
-        if token in WORD_TO_NUM:
-            current += WORD_TO_NUM[token]
-        elif token in MULTIPLIERS:
-            if current == 0:
-                current = 1
-            current *= MULTIPLIERS[token]
-            total += current
-            current = 0
-        else:
-            return None  # unsafe OCR
-
-    return total + current
 def normalize_digits(digits: str | None) -> int | None:
     if not digits:
         return None
@@ -1331,4 +1305,100 @@ def extract_amount(text: str):
                 break
 
     return amount_digits, amount_words
+
+
+_FUZZY_MAP = {
+    # Multiplier typos
+    "THUOSAND": "THOUSAND", "THOUSAN": "THOUSAND", "THOUSANO": "THOUSAND",
+    "THOUSND": "THOUSAND", "THOUS": "THOUSAND", "THOUAND": "THOUSAND",
+    "THOUSAMD": "THOUSAND",
+    "HUNDERD": "HUNDRED", "HUNDERED": "HUNDRED", "HUNDRAD": "HUNDRED",
+    "HUNDRE": "HUNDRED",
+    "LACS": "LAKHS", "LAC": "LAKH", "LAKN": "LAKH", "LAKII": "LAKH",
+    "CRORES": "CRORES", "CROR": "CRORE",
+    # Number word typos
+    "THIRY": "THIRTY", "THIRIY": "THIRTY", "THRITY": "THIRTY",
+    "FOURTY": "FORTY", "FORIY": "FORTY",
+    "FIFIY": "FIFTY", "FIFY": "FIFTY", "FITTY": "FIFTY",
+    "SIXIY": "SIXTY", "SIXY": "SIXTY",
+    "SEVEMTY": "SEVENTY", "SEVENIY": "SEVENTY", "SEVENTY": "SEVENTY",
+    "EIGHIY": "EIGHTY", "EGHTY": "EIGHTY",
+    "NINEIY": "NINETY", "NINTY": "NINETY",
+    "IWENTY": "TWENTY", "IWEN": "TWENTY", "TWENIY": "TWENTY",
+    "ELVEN": "ELEVEN", "ELEVN": "ELEVEN",
+    "TWEIVE": "TWELVE", "TWLVE": "TWELVE",
+    "IWO": "TWO", "7WO": "TWO", "TW0": "TWO",
+    "IHREE": "THREE", "7HREE": "THREE",
+    "FOOR": "FOUR", "F0UR": "FOUR",
+    "FIYE": "FIVE", "EIVE": "FIVE",
+    "SEYEN": "SEVEN", "SEVE": "SEVEN",
+    "EIGHI": "EIGHT", "EIGH": "EIGHT",
+    "NIME": "NINE", "NIN": "NINE",
+}
+
+def _fuzzy_word(token: str) -> str:
+    """Try to correct an OCR-garbled token to a known number word."""
+    token = token.upper().strip()
+    if token in WORD_TO_NUM or token in MULTIPLIERS:
+        return token
+    if token in _FUZZY_MAP:
+        return _FUZZY_MAP[token]
+    return token
+
+def words_to_number(words: str | None) -> int | None:
+    """
+    Convert English number words to integer.
+    Tolerant of OCR noise — skips unknown single-char tokens and
+    uses fuzzy matching for garbled words.
+    """
+    if not words:
+        return None
+
+    words = (
+        words.replace("RUPEES", "")
+             .replace("ONLY", "")
+             .replace("-", " ")
+             .strip()
+    )
+
+    tokens = words.split()
+    if not tokens:
+        return None
+
+    total = 0
+    current = 0
+    found_any = False
+
+    for raw_token in tokens:
+        token = _fuzzy_word(raw_token)
+
+        if token in WORD_TO_NUM:
+            current += WORD_TO_NUM[token]
+            found_any = True
+        elif token in MULTIPLIERS:
+            if current == 0:
+                current = 1
+            current *= MULTIPLIERS[token]
+            total += current
+            current = 0
+            found_any = True
+        else:
+            # Skip noise: single chars, punctuation, short garbage
+            if len(raw_token) <= 2:
+                continue
+            # Skip common non-number words that appear on cheques
+            if raw_token in {"THE", "AND", "OF", "FOR", "PAY", "SUM",
+                             "AMOUNT", "TOTAL", "NET", "BEING", "RS"}:
+                continue
+            # Unknown multi-char token — if we already found numbers, stop
+            # (we've likely reached the end of the number phrase)
+            if found_any:
+                break
+            # Haven't found any numbers yet — skip this token
+            continue
+
+    if not found_any:
+        return None
+
+    return total + current
 
