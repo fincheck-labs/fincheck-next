@@ -1233,3 +1233,31 @@ def get_result(id: str):
 
     doc["_id"] = str(doc["_id"])
     return doc
+def preprocess_handwritten(image: np.ndarray) -> np.ndarray:
+    """
+    Enhanced preprocessing for handwritten text on cheques.
+    Uses CLAHE + bilateral filter + morphological thickening.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+
+    # CLAHE for variable ink density
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+
+    # Bilateral filter — reduce noise, keep edges (pen strokes)
+    filtered = cv2.bilateralFilter(enhanced, 9, 75, 75)
+
+    # Adaptive threshold
+    thresh = cv2.adaptiveThreshold(
+        filtered, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        15, 4
+    )
+
+    # Morphological close — thicken thin handwritten strokes
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+    closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
+    return closed
+
