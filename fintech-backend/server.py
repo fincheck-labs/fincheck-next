@@ -1271,3 +1271,15 @@ def crop_amount_digits_multi(image: np.ndarray) -> list:
             crops.append(crop)
     return crops
 
+_DIGIT_ROI_ZONES = [
+    # Tight zones — target just the ₹ amount box on Indian cheques
+    (0.28, 0.42, 0.70, 0.96),   # zone T1 — tight right-side amount box
+    (0.25, 0.38, 0.72, 0.95),   # zone T2 — slightly higher
+    (0.32, 0.45, 0.68, 0.96),   # zone T3 — slightly lower
+    # Wider zones — fallback for non-standard layouts
+    (0.30, 0.55, 0.55, 0.98),   # zone 1 — common position
+    (0.40, 0.55, 0.58, 0.95),   # zone 2 — original hardcoded
+    (0.25, 0.50, 0.60, 0.98),   # zone 3 — higher position
+    (0.20, 0.60, 0.50, 0.99),   # zone 4 — wide scan
+]
+
