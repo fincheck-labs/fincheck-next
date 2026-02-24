@@ -26,32 +26,24 @@ from model_def import MNISTCNN
 from download_modes import ensure_models
 import re
 import pytesseract
-
 import easyocr
-_easyocr_reader = None
-def get_easyocr_reader():
-    global _easyocr_reader
-    import torch
-    if _easyocr_reader is None:
-        _easyocr_reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
-    return _easyocr_reader
 
+# Configure Tesseract path for Windows
 import platform
-import os
 if platform.system() == "Windows":
     _tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
     if os.path.exists(_tesseract_path):
-        import pytesseract
+        pytesseract.pytesseract.tesseract_cmd = _tesseract_path
 
-import easyocr
+# Initialize EasyOCR reader (fallback for handwriting)
 _easyocr_reader = None
+
 def get_easyocr_reader():
     global _easyocr_reader
-    import torch
     if _easyocr_reader is None:
         _easyocr_reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
     return _easyocr_reader
-        pytesseract.pytesseract.tesseract_cmd = _tesseract_path
+
 import io
 from torchvision.datasets import CIFAR10
 from model_def import CIFARCNN
@@ -808,32 +800,6 @@ async def run_dataset(
 # OCR
 # ==================================================
 import pytesseract
-
-import easyocr
-_easyocr_reader = None
-def get_easyocr_reader():
-    global _easyocr_reader
-    import torch
-    if _easyocr_reader is None:
-        _easyocr_reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
-    return _easyocr_reader
-
-import platform
-import os
-if platform.system() == "Windows":
-    _tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-    if os.path.exists(_tesseract_path):
-        import pytesseract
-
-import easyocr
-_easyocr_reader = None
-def get_easyocr_reader():
-    global _easyocr_reader
-    import torch
-    if _easyocr_reader is None:
-        _easyocr_reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
-    return _easyocr_reader
-        pytesseract.pytesseract.tesseract_cmd = _tesseract_path
 @app.post("/verify")
 async def verify(image: UploadFile = File(...), raw_text: str = Form(...)):
     img = Image.open(image.file).convert("L").resize((128, 32))
@@ -1073,8 +1039,13 @@ def export_pdf_from_db(id: str):
 
 
 
+# ==================================================
+# CHEQUE PREPROCESSING
+# ==================================================
+
 def preprocess(image: np.ndarray) -> np.ndarray:
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    """Original preprocessing — good for printed text."""
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(
         blur, 255,
@@ -1085,153 +1056,6 @@ def preprocess(image: np.ndarray) -> np.ndarray:
     return thresh
 
 
-def crop_amount_digits_roi(image: np.ndarray) -> np.ndarray:
-    h, w, _ = image.shape
-    return image[int(h * 0.40):int(h * 0.55), int(w * 0.58):int(w * 0.95)]
-
-
-def preprocess_digits(image: np.ndarray) -> np.ndarray:
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    gray = cv2.equalizeHist(gray)
-    _, thresh = cv2.threshold(
-        gray, 0, 255,
-        cv2.THRESH_BINARY + cv2.THRESH_OTSU
-    )
-    return thresh
-WORD_TO_NUM = {
-    "ZERO": 0, "ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4,
-    "FIVE": 5, "SIX": 6, "SEVEN": 7, "EIGHT": 8, "NINE": 9,
-    "TEN": 10, "ELEVEN": 11, "TWELVE": 12, "THIRTEEN": 13,
-    "FOURTEEN": 14, "FIFTEEN": 15, "SIXTEEN": 16,
-    "SEVENTEEN": 17, "EIGHTEEN": 18, "NINETEEN": 19,
-    "TWENTY": 20, "THIRTY": 30, "FORTY": 40,
-    "FIFTY": 50, "SIXTY": 60, "SEVENTY": 70,
-    "EIGHTY": 80, "NINETY": 90,
-}
-
-MULTIPLIERS = {
-    "HUNDRED": 100,
-    "THOUSAND": 1_000,
-    "LAKH": 100_000, "LAKHS": 100_000,
-    "CRORE": 10_000_000, "CRORES": 10_000_000,
-}
-
-
-from ultralytics import YOLO
-from pathlib import Path
-# Load YOLOv8 nano model (custom trained)
-YOLO_MODEL_PATH = Path("models/amount_words_yolov8n.pt")
-yolo_words_model = None
-
-def get_yolo_model():
-    global yolo_words_model
-
-    if not YOLO_MODEL_PATH.exists():
-        return None  # ❗ model not available → skip YOLO safely
-
-    if yolo_words_model is None:
-        yolo_words_model = YOLO(str(YOLO_MODEL_PATH))
-
-    return yolo_words_model
-def yolo_detect_amount_words(image: np.ndarray):
-    model = get_yolo_model()
-    if model is None:
-        return None
-
-    results = model(image, conf=0.4, verbose=False)
-
-    for r in results:
-        if r.boxes is None:
-            continue
-        for box in r.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            return x1, y1, x2, y2
-
-    return None
-
-@app.post("/extract-cheque-amount")
-async def extract_cheque_amount(file: UploadFile = File(...)):
-    image_bytes = await file.read()
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    image_np = np.array(image)
-
-    # ---------- WORDS OCR (FAST PATH) ----------
-    processed_full = preprocess(image_np)
-    text_full = pytesseract.image_to_string(
-        processed_full,
-        config="--psm 6"
-    )
-
-    # ---------- DIGITS OCR ----------
-    roi = crop_amount_digits_roi(image_np)
-    roi_processed = preprocess_digits(roi)
-
-    text_digits = pytesseract.image_to_string(
-        roi_processed,
-        config="--psm 7 -c tessedit_char_whitelist=0123456789,/"
-    )
-
-    amount_digits, amount_words = extract_amount(
-        (text_full + " " + text_digits).upper()
-    )
-
-    digit_value = normalize_digits(amount_digits)
-    word_value = words_to_number(amount_words)
-
-    # ---------- INITIAL VERIFICATION ----------
-    if digit_value is None or word_value is None:
-        status = "UNVERIFIED"
-    elif digit_value == word_value:
-        status = "MATCH"
-    else:
-        status = "MISMATCH"
-
-    # ---------- YOLO FALLBACK ----------
-    used_yolo=False
-    if status == "UNVERIFIED":
-        bbox = yolo_detect_amount_words(image_np)
-
-        if bbox:
-            used_yolo = True
-            x1, y1, x2, y2 = bbox
-
-            words_roi = image_np[y1:y2, x1:x2]
-            processed_words = preprocess(words_roi)
-
-            retry_text = pytesseract.image_to_string(
-                processed_words,
-                config="--psm 6"
-            )
-
-            retry_words = extract_amount(retry_text.upper())[1]
-            retry_word_value = words_to_number(retry_words)
-
-            if retry_word_value is not None and retry_word_value == digit_value:
-                status = "MATCH"
-                amount_words = retry_words
-                word_value = retry_word_value
-
-    return {
-    "amount_digits": amount_digits,
-    "amount_words": amount_words,
-    "digits_value": digit_value,
-    "words_value": word_value,
-    "verification_status": status,
-    "used_yolo_fallback": used_yolo,
-    "raw_ocr_text": text_full,
-    "digits_roi_ocr": text_digits,
-}
-
-from bson import ObjectId
-
-@app.get("/results/{id}")
-def get_result(id: str):
-    doc = mongo_results.find_one({"_id": ObjectId(id)})
-    if not doc:
-        raise HTTPException(404, "Result not found")
-
-    doc["_id"] = str(doc["_id"])
-    return doc
 def preprocess_handwritten(image: np.ndarray) -> np.ndarray:
     """
     Enhanced preprocessing for handwritten text on cheques.
@@ -1260,16 +1084,12 @@ def preprocess_handwritten(image: np.ndarray) -> np.ndarray:
 
     return closed
 
-def crop_amount_digits_multi(image: np.ndarray) -> list:
-    """Try multiple ROI zones and return all crops."""
-    h, w = image.shape[:2]
-    crops = []
-    for (y1f, y2f, x1f, x2f) in _DIGIT_ROI_ZONES:
-        crop = image[int(h * y1f):int(h * y2f), int(w * x1f):int(w * x2f)]
-        if crop.size > 0:
-            crops.append(crop)
-    return crops
 
+# ==================================================
+# CHEQUE ROI CROPPING
+# ==================================================
+
+# Multiple ROI zones to try for the digit amount box
 _DIGIT_ROI_ZONES = [
     # Tight zones — target just the ₹ amount box on Indian cheques
     (0.28, 0.42, 0.70, 0.96),   # zone T1 — tight right-side amount box
@@ -1281,6 +1101,49 @@ _DIGIT_ROI_ZONES = [
     (0.25, 0.50, 0.60, 0.98),   # zone 3 — higher position
     (0.20, 0.60, 0.50, 0.99),   # zone 4 — wide scan
 ]
+
+def crop_amount_digits_roi(image: np.ndarray) -> np.ndarray:
+    """Original hardcoded crop."""
+    h, w = image.shape[:2]
+    c = 3 if len(image.shape) == 3 else None
+    return image[int(h * 0.40):int(h * 0.55), int(w * 0.58):int(w * 0.95)]
+
+
+def crop_amount_digits_multi(image: np.ndarray) -> list:
+    """Try multiple ROI zones and return all crops."""
+    h, w = image.shape[:2]
+    crops = []
+    for (y1f, y2f, x1f, x2f) in _DIGIT_ROI_ZONES:
+        crop = image[int(h * y1f):int(h * y2f), int(w * x1f):int(w * x2f)]
+        if crop.size > 0:
+            crops.append(crop)
+    return crops
+
+
+def preprocess_digits(image: np.ndarray) -> np.ndarray:
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+    gray = cv2.equalizeHist(gray)
+    _, thresh = cv2.threshold(
+        gray, 0, 255,
+        cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+    return thresh
+
+
+# ==================================================
+# AMOUNT EXTRACTION (WORDS + DIGITS)
+# ==================================================
+
+# All known number words (for direct sequence scanning)
+_ALL_NUM_WORDS = {
+    "ZERO", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN",
+    "EIGHT", "NINE", "TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN",
+    "FIFTEEN", "SIXTEEN", "SEVENTEEN", "EIGHTEEN", "NINETEEN",
+    "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY",
+    "EIGHTY", "NINETY", "HUNDRED", "THOUSAND", "LAKH", "LAKHS",
+    "LAC", "LACS", "CRORE", "CRORES",
+}
+
 
 def _clean_ocr_text(text: str) -> str:
     """
@@ -1355,6 +1218,58 @@ def extract_amount(text: str):
     return amount_digits, amount_words
 
 
+def _scan_number_word_sequence(text: str) -> str | None:
+    """
+    Scan text for the longest contiguous run of number words.
+    E.g. "Two lakh Seventy Thousand" → "TWO LAKH SEVENTY THOUSAND"
+    """
+    words = re.findall(r"[A-Z]+", text)
+    best_seq = []
+    current_seq = []
+
+    for w in words:
+        corrected = _fuzzy_word(w)
+        if corrected in _ALL_NUM_WORDS:
+            current_seq.append(corrected)
+        else:
+            if len(current_seq) > len(best_seq):
+                best_seq = current_seq[:]
+            current_seq = []
+
+    if len(current_seq) > len(best_seq):
+        best_seq = current_seq
+
+    # Need at least 2 tokens to count (e.g. "TWO THOUSAND")
+    if len(best_seq) >= 2:
+        return " ".join(best_seq)
+
+    return None
+
+
+# ==================================================
+# WORD → NUMBER CONVERSION (WITH FUZZY MATCHING)
+# ==================================================
+
+WORD_TO_NUM = {
+    "ZERO": 0, "ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4,
+    "FIVE": 5, "SIX": 6, "SEVEN": 7, "EIGHT": 8, "NINE": 9,
+    "TEN": 10, "ELEVEN": 11, "TWELVE": 12, "THIRTEEN": 13,
+    "FOURTEEN": 14, "FIFTEEN": 15, "SIXTEEN": 16,
+    "SEVENTEEN": 17, "EIGHTEEN": 18, "NINETEEN": 19,
+    "TWENTY": 20, "THIRTY": 30, "FORTY": 40,
+    "FIFTY": 50, "SIXTY": 60, "SEVENTY": 70,
+    "EIGHTY": 80, "NINETY": 90,
+}
+
+MULTIPLIERS = {
+    "HUNDRED": 100,
+    "THOUSAND": 1_000,
+    "LAKH": 100_000, "LAKHS": 100_000,
+    "LAC": 100_000, "LACS": 100_000,
+    "CRORE": 10_000_000, "CRORES": 10_000_000,
+}
+
+# Common OCR misreads → correct word
 _FUZZY_MAP = {
     # Multiplier typos
     "THUOSAND": "THOUSAND", "THOUSAN": "THOUSAND", "THOUSANO": "THOUSAND",
@@ -1392,6 +1307,7 @@ def _fuzzy_word(token: str) -> str:
     if token in _FUZZY_MAP:
         return _FUZZY_MAP[token]
     return token
+
 
 def words_to_number(words: str | None) -> int | None:
     """
@@ -1450,33 +1366,10 @@ def words_to_number(words: str | None) -> int | None:
 
     return total + current
 
-def _scan_number_word_sequence(text: str) -> str | None:
-    """
-    Scan text for the longest contiguous run of number words.
-    E.g. "Two lakh Seventy Thousand" → "TWO LAKH SEVENTY THOUSAND"
-    """
-    words = re.findall(r"[A-Z]+", text)
-    best_seq = []
-    current_seq = []
 
-    for w in words:
-        corrected = _fuzzy_word(w)
-        if corrected in _ALL_NUM_WORDS:
-            current_seq.append(corrected)
-        else:
-            if len(current_seq) > len(best_seq):
-                best_seq = current_seq[:]
-            current_seq = []
-
-    if len(current_seq) > len(best_seq):
-        best_seq = current_seq
-
-    # Need at least 2 tokens to count (e.g. "TWO THOUSAND")
-    if len(best_seq) >= 2:
-        return " ".join(best_seq)
-
-    return None
-
+# ==================================================
+# DIGIT STRING NORMALIZATION
+# ==================================================
 
 def normalize_digits(digits: str | None) -> int | None:
     """Parse digit string to int. Handles Indian comma format & suffixes."""
@@ -1491,6 +1384,52 @@ def normalize_digits(digits: str | None) -> int | None:
     except ValueError:
         return None
 
+
+# ==================================================
+# YOLO FALLBACK
+# ==================================================
+
+from ultralytics import YOLO
+from pathlib import Path
+
+# Load YOLOv8 nano model (custom trained)
+YOLO_MODEL_PATH = Path("models/amount_words_yolov8n.pt")
+yolo_words_model = None
+
+
+def get_yolo_model():
+    global yolo_words_model
+
+    if not YOLO_MODEL_PATH.exists():
+        return None  # ❗ model not available → skip YOLO safely
+
+    if yolo_words_model is None:
+        yolo_words_model = YOLO(str(YOLO_MODEL_PATH))
+
+    return yolo_words_model
+
+
+def yolo_detect_amount_words(image: np.ndarray):
+    model = get_yolo_model()
+    if model is None:
+        return None
+
+    results = model(image, conf=0.4, verbose=False)
+
+    for r in results:
+        if r.boxes is None:
+            continue
+        for box in r.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            return x1, y1, x2, y2
+
+    return None
+
+
+# ==================================================
+# MULTI-STRATEGY OCR RUNNER
+# ==================================================
+
 def _try_extract(image_np: np.ndarray, preprocess_fn, psm: int,
                  extra_config: str = "") -> str:
     """Run OCR on an image with specified preprocessing and PSM mode."""
@@ -1501,6 +1440,20 @@ def _try_extract(image_np: np.ndarray, preprocess_fn, psm: int,
         return text.strip()
     except Exception:
         return ""
+
+
+def _try_extract_easyocr(image: np.ndarray) -> str:
+    """EasyOCR wrapper for handwriting fallback."""
+    try:
+        reader = get_easyocr_reader()
+        # image can be np.ndarray
+        results = reader.readtext(image, detail=0)
+        return " ".join(results).strip()
+    except Exception as e:
+        # print error for debugging since it's a fallback
+        print(f"⚠️ EasyOCR error: {e}")
+        return ""
+
 
 def _run_digit_extraction(image_np: np.ndarray, full_ocr_texts: list = None) -> tuple:
     """
@@ -1559,6 +1512,7 @@ def _run_digit_extraction(image_np: np.ndarray, full_ocr_texts: list = None) -> 
                     return best_text, best_value
 
     return best_text, best_value
+
 
 def _run_word_extraction(image_np: np.ndarray) -> tuple:
     """
@@ -1621,15 +1575,181 @@ def _run_word_extraction(image_np: np.ndarray) -> tuple:
 
     return best_text, best_words, best_value
 
-def _try_extract_easyocr(image: np.ndarray) -> str:
-    """EasyOCR wrapper for handwriting fallback."""
-    try:
-        reader = get_easyocr_reader()
-        # image can be np.ndarray
-        results = reader.readtext(image, detail=0)
-        return " ".join(results).strip()
-    except Exception as e:
-        # print error for debugging since it's a fallback
-        print(f"⚠️ EasyOCR error: {e}")
-        return ""
 
+# ==================================================
+# CHEQUE AMOUNT ENDPOINT
+# ==================================================
+
+@app.post("/extract-cheque-amount")
+async def extract_cheque_amount(file: UploadFile = File(...)):
+    image_bytes = await file.read()
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image_np = np.array(image)
+
+    # ============================================
+    # STEP 2: WORD EXTRACTION (multi-strategy) — run first to get full OCR texts
+    # ============================================
+    text_full, amount_words, word_value = _run_word_extraction(image_np)
+
+    # ============================================
+    # STEP 1: DIGIT EXTRACTION (multi-zone + full OCR text)
+    # ============================================
+    text_digits, digit_value = _run_digit_extraction(image_np, full_ocr_texts=[text_full])
+
+    # ============================================
+    # STEP 3: CROSS-VALIDATION — if Tesseract digits don't match words, try EasyOCR
+    # ============================================
+    def _easyocr_find_digits(img, expected_value):
+        """Try EasyOCR on image, looking for expected_value as digits."""
+        text = _try_extract_easyocr(img)
+        if not text:
+            return None, None
+        print(f"  🔍 EasyOCR raw: {text[:200]}")
+        upper = text.upper()
+        # Method 1: Use extract_amount patterns
+        digits, _ = extract_amount(upper)
+        value = normalize_digits(digits)
+        if value is not None and value == expected_value:
+            return value, text
+        # Method 2: Direct search for the expected number in the text
+        expected_str = str(expected_value)
+        # Search for the number with optional commas (e.g. "6,000" or "6000")
+        if expected_str in re.sub(r'[,\s]', '', text):
+            return expected_value, text
+        # Method 3: Search for Indian-formatted version (e.g. "2,70,000")
+        import re as _re
+        digits_only = _re.findall(r'\d+', text)
+        for d in digits_only:
+            if normalize_digits(d) == expected_value:
+                return expected_value, text
+        return None, None
+
+    if word_value is not None and digit_value is not None and digit_value != word_value:
+        print(f"⚠️ MISMATCH: digits={digit_value}, words={word_value}. Trying EasyOCR cross-check...")
+        # Try EasyOCR on digit ROIs
+        crops = crop_amount_digits_multi(image_np)
+        for i, crop in enumerate(crops):
+            print(f"  Trying ROI crop {i}...")
+            value, text = _easyocr_find_digits(crop, word_value)
+            if value is not None:
+                print(f"  ✅ EasyOCR found matching digits: {value}")
+                digit_value = value
+                text_digits = text
+                break
+
+    # If still mismatched, try EasyOCR on full image
+    if word_value is not None and digit_value is not None and digit_value != word_value:
+        print("  Trying EasyOCR on full image...")
+        value, text = _easyocr_find_digits(image_np, word_value)
+        if value is not None:
+            print(f"  ✅ Full-image EasyOCR found matching digits: {value}")
+            digit_value = value
+            text_digits = text
+
+    # Also try EasyOCR if Tesseract found nothing at all
+    if digit_value is None and word_value is not None:
+        print("  No Tesseract digits found. Trying EasyOCR...")
+        crops = crop_amount_digits_multi(image_np)
+        for crop in crops:
+            text = _try_extract_easyocr(crop)
+            if text:
+                digits, _ = extract_amount(text.upper())
+                value = normalize_digits(digits)
+                if value is not None:
+                    digit_value = value
+                    text_digits = text
+                    break
+
+    # Extract digit string for display
+    amount_digits = None
+    if digit_value is not None:
+        amount_digits, _ = extract_amount(text_digits.upper())
+        if amount_digits is None:
+            # Reconstruct from value
+            amount_digits = f"{digit_value:,}"
+
+    # ============================================
+    # STEP 4: VERIFICATION
+    # ============================================
+    if digit_value is None or word_value is None:
+        status = "UNVERIFIED"
+    elif digit_value == word_value:
+        status = "MATCH"
+    else:
+        status = "MISMATCH"
+
+    # ============================================
+    # STEP 4: YOLO FALLBACK (if still unverified)
+    # ============================================
+    used_yolo = False
+
+    if status != "MATCH":
+        bbox = yolo_detect_amount_words(image_np)
+
+        if bbox:
+            used_yolo = True
+            x1, y1, x2, y2 = bbox
+            words_roi = image_np[y1:y2, x1:x2]
+
+            # Try both preprocessing strategies on the YOLO crop
+            for prep_fn in [preprocess_handwritten, preprocess]:
+                for psm in [7, 6]:
+                    retry_text = _try_extract(words_roi, prep_fn, psm)
+                    if not retry_text:
+                        continue
+
+                    retry_words = extract_amount(retry_text.upper())[1]
+                    if not retry_words:
+                        # Try direct number-word scan on raw text
+                        retry_words = _scan_number_word_sequence(retry_text.upper())
+
+                    retry_value = words_to_number(retry_words)
+
+                    if retry_value is not None:
+                        # If digits matched, great
+                        if digit_value is not None and retry_value == digit_value:
+                            status = "MATCH"
+                            amount_words = retry_words
+                            word_value = retry_value
+                            break
+                        # If we had no word value at all, use this
+                        if word_value is None:
+                            amount_words = retry_words
+                            word_value = retry_value
+                            if digit_value is not None and word_value == digit_value:
+                                status = "MATCH"
+                                break
+
+                if status == "MATCH":
+                    break
+
+    # Final re-check after YOLO
+    if status != "MATCH":
+        if digit_value is None or word_value is None:
+            status = "UNVERIFIED"
+        elif digit_value == word_value:
+            status = "MATCH"
+        else:
+            status = "MISMATCH"
+
+    return {
+        "amount_digits": amount_digits,
+        "amount_words": amount_words,
+        "digits_value": digit_value,
+        "words_value": word_value,
+        "verification_status": status,
+        "used_yolo_fallback": used_yolo,
+        "raw_ocr_text": text_full,
+        "digits_roi_ocr": text_digits,
+    }
+
+from bson import ObjectId
+
+@app.get("/results/{id}")
+def get_result(id: str):
+    doc = mongo_results.find_one({"_id": ObjectId(id)})
+    if not doc:
+        raise HTTPException(404, "Result not found")
+
+    doc["_id"] = str(doc["_id"])
+    return doc
