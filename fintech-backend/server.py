@@ -1439,3 +1439,133 @@ def normalize_digits(digits: str | None) -> int | None:
     except ValueError:
         return None
 
+def _try_extract(image_np: np.ndarray, preprocess_fn, psm: int,
+                 extra_config: str = "") -> str:
+    """Run OCR on an image with specified preprocessing and PSM mode."""
+    try:
+        processed = preprocess_fn(image_np)
+        config = f"--psm {psm} {extra_config}".strip()
+        text = pytesseract.image_to_string(processed, config=config)
+        return text.strip()
+    except Exception:
+        return ""
+
+def _run_digit_extraction(image_np: np.ndarray, full_ocr_texts: list = None) -> tuple:
+    """
+    Try multiple ROI zones and preprocessing to extract digit amount.
+    Also tries extracting digits from full-image OCR text as fallback.
+    EasyOCR is used ONLY when Tesseract fails entirely.
+    Returns (best_digits_text, best_digit_value).
+    """
+    best_text = ""
+    best_value = None
+
+    # Strategy A: Extract digits from full-image OCR text (Tesseract)
+    if full_ocr_texts:
+        for ft in full_ocr_texts:
+            if not ft:
+                continue
+            digits, _ = extract_amount(ft.upper())
+            value = normalize_digits(digits)
+            if value is not None and value >= 100:
+                best_text = ft
+                best_value = value
+                break  # First good match from Tesseract full text
+
+    # Strategy B: ROI crops with digit-specific Tesseract OCR
+    if best_value is None:
+        crops = crop_amount_digits_multi(image_np)
+        for crop in crops:
+            for prep_fn in [preprocess_digits, preprocess_handwritten, preprocess]:
+                configs = [
+                    ("-c tessedit_char_whitelist=0123456789,/-", [7, 8, 13]),
+                    ("", [7, 6]),
+                ]
+                for extra_cfg, psm_list in configs:
+                    for psm in psm_list:
+                        text = _try_extract(crop, prep_fn, psm, extra_cfg)
+                        if not text:
+                            continue
+                        digits, _ = extract_amount(text.upper())
+                        value = normalize_digits(digits)
+                        if value is not None and value >= 100:
+                            best_text = text
+                            best_value = value
+                            return best_text, best_value
+
+    # Strategy C: EasyOCR fallback — ONLY if Tesseract found nothing
+    if best_value is None:
+        crops = crop_amount_digits_multi(image_np)
+        for crop in crops:
+            text = _try_extract_easyocr(crop)
+            if text:
+                digits, _ = extract_amount(text.upper())
+                value = normalize_digits(digits)
+                if value is not None and value >= 100:
+                    best_text = text
+                    best_value = value
+                    return best_text, best_value
+
+    return best_text, best_value
+
+def _run_word_extraction(image_np: np.ndarray) -> tuple:
+    """
+    Try multiple OCR strategies to extract word amount from full image.
+    Returns (best_ocr_text, best_word_string, best_word_value).
+    """
+    strategies = [
+        # (preprocess_fn, psm, label)
+        (preprocess, 6, "printed_psm6"),
+        (preprocess_handwritten, 6, "handwritten_psm6"),
+        (preprocess, 4, "printed_psm4"),
+        (preprocess_handwritten, 4, "handwritten_psm4"),
+        (preprocess_handwritten, 3, "handwritten_psm3"),
+    ]
+
+    best_text = ""
+    best_words = None
+    best_value = None
+
+    for prep_fn, psm, label in strategies:
+        text = _try_extract(image_np, prep_fn, psm)
+        if not text:
+            continue
+
+        _, words = extract_amount(text.upper())
+        value = words_to_number(words)
+
+        if value is not None:
+            # Prefer the first successful result
+            if best_value is None:
+                best_text = text
+                best_words = words
+                best_value = value
+            # But upgrade if new value is larger (more likely correct)
+            elif value > best_value:
+                best_text = text
+                best_words = words
+                best_value = value
+
+    # Strategy B: EasyOCR on full image — ONLY if Tesseract found nothing
+    if best_value is None:
+        text = _try_extract_easyocr(image_np)
+        if text:
+            _, words = extract_amount(text.upper())
+            value = words_to_number(words)
+            if value is not None:
+                best_text = text
+                best_words = words
+                best_value = value
+
+        # Also store best raw text even if words didn't parse
+        if not best_text:
+            best_text = text
+
+    # Clean the word string — extract just the number words 
+    if best_words and best_value is not None:
+        cleaned = _scan_number_word_sequence(best_words)
+        if cleaned and words_to_number(cleaned) == best_value:
+            best_words = cleaned
+
+    return best_text, best_words, best_value
+
