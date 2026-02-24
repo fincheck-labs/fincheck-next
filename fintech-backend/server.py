@@ -1065,10 +1065,6 @@ MULTIPLIERS = {
 }
 
 
-def normalize_digits(digits: str | None) -> int | None:
-    if not digits:
-        return None
-    return int(digits.replace(",", ""))
 from ultralytics import YOLO
 from pathlib import Path
 # Load YOLOv8 nano model (custom trained)
@@ -1428,4 +1424,18 @@ def _scan_number_word_sequence(text: str) -> str | None:
         return " ".join(best_seq)
 
     return None
+
+
+def normalize_digits(digits: str | None) -> int | None:
+    """Parse digit string to int. Handles Indian comma format & suffixes."""
+    if not digits:
+        return None
+    try:
+        cleaned = digits.replace(",", "").replace("/", "").replace("-", "").strip()
+        cleaned = re.sub(r"[^\d]", "", cleaned)
+        if not cleaned:
+            return None
+        return int(cleaned)
+    except ValueError:
+        return None
 
