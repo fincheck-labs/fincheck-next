@@ -27,12 +27,30 @@ from download_modes import ensure_models
 import re
 import pytesseract
 
+import easyocr
+_easyocr_reader = None
+def get_easyocr_reader():
+    global _easyocr_reader
+    import torch
+    if _easyocr_reader is None:
+        _easyocr_reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
+    return _easyocr_reader
+
 import platform
 import os
 if platform.system() == "Windows":
     _tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
     if os.path.exists(_tesseract_path):
         import pytesseract
+
+import easyocr
+_easyocr_reader = None
+def get_easyocr_reader():
+    global _easyocr_reader
+    import torch
+    if _easyocr_reader is None:
+        _easyocr_reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
+    return _easyocr_reader
         pytesseract.pytesseract.tesseract_cmd = _tesseract_path
 import io
 from torchvision.datasets import CIFAR10
@@ -791,12 +809,30 @@ async def run_dataset(
 # ==================================================
 import pytesseract
 
+import easyocr
+_easyocr_reader = None
+def get_easyocr_reader():
+    global _easyocr_reader
+    import torch
+    if _easyocr_reader is None:
+        _easyocr_reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
+    return _easyocr_reader
+
 import platform
 import os
 if platform.system() == "Windows":
     _tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
     if os.path.exists(_tesseract_path):
         import pytesseract
+
+import easyocr
+_easyocr_reader = None
+def get_easyocr_reader():
+    global _easyocr_reader
+    import torch
+    if _easyocr_reader is None:
+        _easyocr_reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
+    return _easyocr_reader
         pytesseract.pytesseract.tesseract_cmd = _tesseract_path
 @app.post("/verify")
 async def verify(image: UploadFile = File(...), raw_text: str = Form(...)):
@@ -1584,4 +1620,16 @@ def _run_word_extraction(image_np: np.ndarray) -> tuple:
             best_words = cleaned
 
     return best_text, best_words, best_value
+
+def _try_extract_easyocr(image: np.ndarray) -> str:
+    """EasyOCR wrapper for handwriting fallback."""
+    try:
+        reader = get_easyocr_reader()
+        # image can be np.ndarray
+        results = reader.readtext(image, detail=0)
+        return " ".join(results).strip()
+    except Exception as e:
+        # print error for debugging since it's a fallback
+        print(f"⚠️ EasyOCR error: {e}")
+        return ""
 
