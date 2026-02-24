@@ -1283,3 +1283,21 @@ _DIGIT_ROI_ZONES = [
     (0.20, 0.60, 0.50, 0.99),   # zone 4 — wide scan
 ]
 
+def _clean_ocr_text(text: str) -> str:
+    """
+    Clean OCR noise from text before extraction.
+    Fixes: 'TEN. THOUSAND' → 'TEN THOUSAND',
+           'RUPEES.ONLY' → 'RUPEES ONLY', etc.
+    """
+    # Remove dots/punctuation at end of words (before space or end)
+    # This fixes: "TEN. THOUSAND" → "TEN THOUSAND"
+    text = re.sub(r'(?<=[A-Z])[.,;:]+(?=\s|$)', '', text)
+    # Replace dots/commas between adjacent letters with spaces
+    # This fixes: "RUPEES.ONLY" → "RUPEES ONLY"
+    text = re.sub(r'(?<=[A-Z])[.,;:]+(?=[A-Z])', ' ', text)
+    # Remove stray single non-alphanumeric chars surrounded by spaces
+    text = re.sub(r'(?<=\s)[^A-Z0-9₹,/\s](?=\s)', ' ', text)
+    # Collapse multiple spaces
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
