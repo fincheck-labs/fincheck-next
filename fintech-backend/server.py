@@ -1046,29 +1046,6 @@ def preprocess_digits(image: np.ndarray) -> np.ndarray:
         cv2.THRESH_BINARY + cv2.THRESH_OTSU
     )
     return thresh
-def extract_amount(text: str):
-    text = text.upper()
-
-    # ---------- WORDS ----------
-    word_match = re.search(r"([A-Z\s]+RUPEES\s+ONLY)", text)
-    amount_words = word_match.group(1).strip() if word_match else None
-
-    # ---------- DIGITS ----------
-    digit_patterns = [
-        r"₹\s*([\d,]+)",
-        r"RS\.?\s*([\d,]+)",
-        r"([\d,]+)\s*/",        # matches 10,000/
-        r"\b([\d,]{3,})\b",     # fallback for large numbers
-    ]
-
-    amount_digits = None
-    for pattern in digit_patterns:
-        match = re.search(pattern, text)
-        if match:
-            amount_digits = match.group(1)
-            break
-
-    return amount_digits, amount_words
 WORD_TO_NUM = {
     "ZERO": 0, "ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4,
     "FIVE": 5, "SIX": 6, "SEVEN": 7, "EIGHT": 8, "NINE": 9,
@@ -1300,4 +1277,58 @@ def _clean_ocr_text(text: str) -> str:
     # Collapse multiple spaces
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
+
+
+def extract_amount(text: str):
+    text = _clean_ocr_text(text.upper())
+
+    # ---------- WORDS: try multiple patterns ----------
+    amount_words = None
+
+    # Pattern 1: "... RUPEES ONLY"
+    m = re.search(r"([A-Z\s]+RUPEES\s+ONLY)", text)
+    if m:
+        amount_words = m.group(1).strip()
+
+    # Pattern 2: "RUPEES <words>" without ONLY
+    if not amount_words:
+        m = re.search(r"RUPEES\s+([A-Z\s]+?)(?:\s*ONLY|\s*$|\n)", text)
+        if m:
+            amount_words = m.group(1).strip()
+
+    # Pattern 3: "<words> RUPEES"
+    if not amount_words:
+        m = re.search(r"([A-Z\s]+?)\s+RUPEES", text)
+        if m:
+            candidate = m.group(1).strip()
+            tokens = candidate.split()
+            # At least one token must be a number word
+            if any(t in _ALL_NUM_WORDS for t in tokens):
+                amount_words = candidate
+
+    # Pattern 4: Direct scan for number-word sequences
+    #   (e.g. "Two lakh Seventy Thousand" without RUPEES at all)
+    if not amount_words:
+        amount_words = _scan_number_word_sequence(text)
+
+    # ---------- DIGITS ----------
+    digit_patterns = [
+        r"₹\s*([\d,]+)\s*/?-?",            # ₹2,70,000/- or ₹10,000
+        r"RS\.?\s*([\d,]+)\s*/?-?",         # Rs 2,70,000/-
+        r"([\d,]+)\s*/-",                   # 2,70,000/-
+        r"([\d,]+)\s*/",                    # 10,000/
+        r"\b(\d{1,3}(?:,\d{2,3})*)\b",     # Indian / international comma format
+        r"\b(\d{4,})\b",                    # plain large number
+    ]
+
+    amount_digits = None
+    for pattern in digit_patterns:
+        match = re.search(pattern, text)
+        if match:
+            raw = match.group(1).strip().rstrip("/-")
+            if raw and any(c.isdigit() for c in raw):
+                amount_digits = raw
+                break
+
+    return amount_digits, amount_words
 
