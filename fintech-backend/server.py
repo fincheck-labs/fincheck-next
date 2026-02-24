@@ -1402,3 +1402,30 @@ def words_to_number(words: str | None) -> int | None:
 
     return total + current
 
+def _scan_number_word_sequence(text: str) -> str | None:
+    """
+    Scan text for the longest contiguous run of number words.
+    E.g. "Two lakh Seventy Thousand" → "TWO LAKH SEVENTY THOUSAND"
+    """
+    words = re.findall(r"[A-Z]+", text)
+    best_seq = []
+    current_seq = []
+
+    for w in words:
+        corrected = _fuzzy_word(w)
+        if corrected in _ALL_NUM_WORDS:
+            current_seq.append(corrected)
+        else:
+            if len(current_seq) > len(best_seq):
+                best_seq = current_seq[:]
+            current_seq = []
+
+    if len(current_seq) > len(best_seq):
+        best_seq = current_seq
+
+    # Need at least 2 tokens to count (e.g. "TWO THOUSAND")
+    if len(best_seq) >= 2:
+        return " ".join(best_seq)
+
+    return None
+
