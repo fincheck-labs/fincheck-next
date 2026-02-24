@@ -1261,3 +1261,13 @@ def preprocess_handwritten(image: np.ndarray) -> np.ndarray:
 
     return closed
 
+def crop_amount_digits_multi(image: np.ndarray) -> list:
+    """Try multiple ROI zones and return all crops."""
+    h, w = image.shape[:2]
+    crops = []
+    for (y1f, y2f, x1f, x2f) in _DIGIT_ROI_ZONES:
+        crop = image[int(h * y1f):int(h * y2f), int(w * x1f):int(w * x2f)]
+        if crop.size > 0:
+            crops.append(crop)
+    return crops
+
