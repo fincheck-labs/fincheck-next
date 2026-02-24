@@ -26,6 +26,14 @@ from model_def import MNISTCNN
 from download_modes import ensure_models
 import re
 import pytesseract
+
+import platform
+import os
+if platform.system() == "Windows":
+    _tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    if os.path.exists(_tesseract_path):
+        import pytesseract
+        pytesseract.pytesseract.tesseract_cmd = _tesseract_path
 import io
 from torchvision.datasets import CIFAR10
 from model_def import CIFARCNN
@@ -782,6 +790,14 @@ async def run_dataset(
 # OCR
 # ==================================================
 import pytesseract
+
+import platform
+import os
+if platform.system() == "Windows":
+    _tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    if os.path.exists(_tesseract_path):
+        import pytesseract
+        pytesseract.pytesseract.tesseract_cmd = _tesseract_path
 @app.post("/verify")
 async def verify(image: UploadFile = File(...), raw_text: str = Form(...)):
     img = Image.open(image.file).convert("L").resize((128, 32))
