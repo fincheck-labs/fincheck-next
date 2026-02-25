@@ -15,7 +15,7 @@ export function Header({ onMenuPress }: HeaderProps) {
     <ThemedView style={[styles.header, { borderBottomColor: colors.border }]}>
       <View style={styles.content}>
         <ThemedText style={[styles.logo, { color: colors.primary }]}>
-          Fintech
+          Fincheck
         </ThemedText>
         
         {onMenuPress && (
