@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -12,6 +12,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import Svg, { Path, Circle, Line, Rect, G, Defs, ClipPath } from 'react-native-svg';
 import { ThemedView } from '@/components/ui/ThemedView';
 import { ThemedText } from '@/components/ui/ThemedText';
 import { Header } from '@/components/layout/Header';
@@ -21,36 +22,219 @@ import Dropdown from '@/components/ui/Dropdown';
 import Slider from '@/components/ui/Slider';
 import { useTheme } from '@/hooks/useTheme';
 import { PREBUILT_DATASETS } from '@/lib/dataset';
-import {
-  runSingleInference,
-  runDatasetEvaluation,
-} from '@/lib/api';
+import { runSingleInference, runDatasetEvaluation } from '@/lib/api';
 
 type Mode = 'SINGLE' | 'DATASET';
 
+/* ─────────────────────────────────────────────
+   ICON SYSTEM — all sourced from the same
+   24×24 stroke-based design language (Lucide).
+   Stroke: white, width: 2, linecap/join: round
+───────────────────────────────────────────── */
+const ICON_SIZE = 16;
+const ICON_STROKE = '#ffffff';
+const ICON_SW = 2;
+
+function IconBlur({ size = ICON_SIZE }: { size?: number }) {
+  // Layers / blur symbol — concentric softening circles
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="3" stroke={ICON_STROKE} strokeWidth={ICON_SW} />
+      <Circle cx="12" cy="12" r="6" stroke={ICON_STROKE} strokeWidth={ICON_SW} strokeOpacity={0.6} strokeDasharray="2 2" />
+      <Circle cx="12" cy="12" r="9.5" stroke={ICON_STROKE} strokeWidth={ICON_SW} strokeOpacity={0.3} strokeDasharray="2 3" />
+    </Svg>
+  );
+}
+
+function IconRotate({ size = ICON_SIZE }: { size?: number }) {
+  // Rotate-CW arrow (Lucide RotateCw)
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 2v6h-6"
+        stroke={ICON_STROKE}
+        strokeWidth={ICON_SW}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M21 13a9 9 0 1 1-3-7.7L21 8"
+        stroke={ICON_STROKE}
+        strokeWidth={ICON_SW}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function IconNoise({ size = ICON_SIZE }: { size?: number }) {
+  // Static/noise — scattered dots on a grid
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* 3×3 dot grid with irregular opacity */}
+      <Circle cx="5"  cy="5"  r="1.5" fill={ICON_STROKE} fillOpacity={0.9} />
+      <Circle cx="12" cy="4"  r="1.5" fill={ICON_STROKE} fillOpacity={0.4} />
+      <Circle cx="19" cy="6"  r="1.5" fill={ICON_STROKE} fillOpacity={0.8} />
+      <Circle cx="4"  cy="12" r="1.5" fill={ICON_STROKE} fillOpacity={0.5} />
+      <Circle cx="12" cy="12" r="1.5" fill={ICON_STROKE} fillOpacity={1.0} />
+      <Circle cx="20" cy="12" r="1.5" fill={ICON_STROKE} fillOpacity={0.3} />
+      <Circle cx="6"  cy="19" r="1.5" fill={ICON_STROKE} fillOpacity={0.7} />
+      <Circle cx="13" cy="20" r="1.5" fill={ICON_STROKE} fillOpacity={0.4} />
+      <Circle cx="19" cy="18" r="1.5" fill={ICON_STROKE} fillOpacity={0.9} />
+    </Svg>
+  );
+}
+
+function IconErase({ size = ICON_SIZE }: { size?: number }) {
+  // Eraser (Lucide Eraser)
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"
+        stroke={ICON_STROKE}
+        strokeWidth={ICON_SW}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M22 21H7"
+        stroke={ICON_STROKE}
+        strokeWidth={ICON_SW}
+        strokeLinecap="round"
+      />
+      <Path
+        d="m11 6 5 5"
+        stroke={ICON_STROKE}
+        strokeWidth={ICON_SW}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function IconUpload({ size = 32 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+        stroke="#94a3b8"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="m17 8-5-5-5 5"
+        stroke="#94a3b8"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M12 3v12"
+        stroke="#94a3b8"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   EFFECT BADGE — uniform pill with SVG icon
+───────────────────────────────────────────── */
+type BadgeVariant = 'blur' | 'rotate' | 'noise' | 'erase';
+
+const BADGE_CONFIG: Record<
+  BadgeVariant,
+  { bg: string; border: string; label: string }
+> = {
+  blur:   { bg: '#3730a3', border: '#6366f1', label: 'Blur' },
+  rotate: { bg: '#065f46', border: '#10b981', label: 'Rotate' },
+  noise:  { bg: '#92400e', border: '#f59e0b', label: 'Noise' },
+  erase:  { bg: '#7f1d1d', border: '#ef4444', label: 'Erase' },
+};
+
+function EffectBadge({
+  variant,
+  value,
+}: {
+  variant: BadgeVariant;
+  value: string;
+}) {
+  const cfg = BADGE_CONFIG[variant];
+  const Icon =
+    variant === 'blur'   ? IconBlur   :
+    variant === 'rotate' ? IconRotate :
+    variant === 'noise'  ? IconNoise  :
+                           IconErase;
+
+  return (
+    <View
+      style={[
+        badgeStyles.pill,
+        { backgroundColor: cfg.bg, borderColor: cfg.border },
+      ]}
+    >
+      <Icon size={14} />
+      <ThemedText style={badgeStyles.label}>{cfg.label}</ThemedText>
+      <View style={badgeStyles.divider} />
+      <ThemedText style={badgeStyles.value}>{value}</ThemedText>
+    </View>
+  );
+}
+
+const badgeStyles = StyleSheet.create({
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ffffff',
+    letterSpacing: 0.3,
+  },
+  divider: {
+    width: 1,
+    height: 12,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  value: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+    fontVariant: ['tabular-nums'],
+    minWidth: 32,
+    textAlign: 'right',
+  },
+});
+
+/* ─────────────────────────────────────────────
+   MAIN SCREEN
+───────────────────────────────────────────── */
 export default function UploadScreen() {
   const router = useRouter();
   const { colors, toggleTheme } = useTheme();
   const [drawerVisible, setDrawerVisible] = useState(false);
 
-  /* ================= MODE ================= */
   const [mode, setMode] = useState<Mode>('SINGLE');
-
-  /* ================= DATA ================= */
   const [selectedDataset, setSelectedDataset] = useState<string>('MNIST_100');
   const [selectedDigit, setSelectedDigit] = useState<number>(0);
 
-  /* ================= FILE ================= */
   const [file, setFile] = useState<any>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
 
-  /* ================= STRESS ================= */
   const [blur, setBlur] = useState(0);
   const [rotation, setRotation] = useState(0);
   const [noise, setNoise] = useState(0);
   const [erase, setErase] = useState(0);
 
-  /* ================= UI ================= */
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,16 +243,13 @@ export default function UploadScreen() {
 
   const { width: screenWidth } = Dimensions.get('window');
   const PREVIEW_SIZE = Math.min(screenWidth * 0.8, 300);
-  const GRID_CELL_SIZE = 44;
 
-  /* ================= IMAGE PICKER ================= */
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
     });
-
     if (!result.canceled && result.assets[0]) {
       setImageUri(result.assets[0].uri);
       setFile(result.assets[0]);
@@ -78,15 +259,12 @@ export default function UploadScreen() {
 
   const pickZipFile = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/zip',
-      });
-
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/zip' });
       if (!result.canceled && result.assets[0]) {
         setFile(result.assets[0]);
         setError(null);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to pick file');
     }
   };
@@ -94,41 +272,22 @@ export default function UploadScreen() {
   const runInference = async () => {
     setLoading(true);
     setError(null);
-
     try {
       if (mode === 'SINGLE') {
-        if (!imageUri) {
-          setError('Please upload an image');
-          setLoading(false);
-          return;
-        }
-
+        if (!imageUri) { setError('Please upload an image'); setLoading(false); return; }
         const res = await runSingleInference({
-          image: {
-            uri: imageUri,
-            name: 'digit.png',
-            type: 'image/png',
-          },
+          image: { uri: imageUri, name: 'digit.png', type: 'image/png' },
           expectedDigit: selectedDigit,
-          blur,
-          rotation,
-          noise,
-          erase,
+          blur, rotation, noise, erase,
         });
-
         router.push(`/results/${res.id}`);
         return;
       }
-
       if (mode === 'DATASET') {
         const res = await runDatasetEvaluation({
           datasetName: selectedDataset,
-          blur,
-          rotation,
-          noise,
-          erase,
+          blur, rotation, noise, erase,
         });
-
         router.push(`/results/${res.id}`);
         return;
       }
@@ -139,31 +298,26 @@ export default function UploadScreen() {
     }
   };
 
-  /* ================= DIGIT DROPDOWN ITEMS ================= */
   const digitItems = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => ({
     label: String(d),
     value: d,
   }));
+  const datasetItems = PREBUILT_DATASETS.map((d) => ({ label: d.label, value: d.id }));
 
-  /* ================= DATASET DROPDOWN ITEMS ================= */
-  const datasetItems = PREBUILT_DATASETS.map((d) => ({
-    label: d.label,
-    value: d.id,
-  }));
+  // Which badges are active
+  const activeBadges: { variant: BadgeVariant; value: string }[] = [];
+  if (blur > 0)              activeBadges.push({ variant: 'blur',   value: `${blur.toFixed(1)}px` });
+  if (Math.abs(rotation) > 1) activeBadges.push({ variant: 'rotate', value: `${rotation > 0 ? '+' : ''}${rotation}°` });
+  if (noise > 0)             activeBadges.push({ variant: 'noise',  value: noise.toFixed(2) });
+  if (erase > 0)             activeBadges.push({ variant: 'erase',  value: `${Math.round(erase * 100)}%` });
 
   return (
     <ThemedView style={styles.container}>
       <Header onMenuPress={openDrawer} />
-      <Drawer
-        visible={drawerVisible}
-        onClose={closeDrawer}
-        onThemeToggle={toggleTheme}
-      />
+      <Drawer visible={drawerVisible} onClose={closeDrawer} onThemeToggle={toggleTheme} />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
         {/* Title */}
         <View style={styles.section}>
           <ThemedText style={styles.title}>Robustness Testing</ThemedText>
@@ -177,120 +331,90 @@ export default function UploadScreen() {
           <EvaluationModeSelector mode={mode} setMode={setMode} />
         </View>
 
-        {/* ================= SINGLE MODE ================= */}
+        {/* ── SINGLE MODE ── */}
         {mode === 'SINGLE' && (
           <View style={styles.section}>
-            {/* Digit Selector - unchanged */}
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>Expected Digit</ThemedText>
               <Dropdown
                 value={selectedDigit}
                 items={digitItems}
-                onValueChange={(value) => setSelectedDigit(value as number)}
+                onValueChange={(v) => setSelectedDigit(v as number)}
                 placeholder="Select digit"
               />
             </View>
 
-            {/* 🎯 IMAGE-ONLY STRESS PREVIEW */}
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>Live Stress Preview</ThemedText>
-              
+
               <TouchableOpacity style={styles.imageContainer} onPress={pickImage} activeOpacity={0.9}>
-                {/* ✅ IMAGE with BLUR + ROTATION */}
-                {imageUri && (
-                  <Image
-                    source={{ uri: imageUri }}
-                    style={[
-                      styles.stressImage,
-                      {
-                        width: PREVIEW_SIZE,
-                        height: PREVIEW_SIZE,
-                        opacity: Math.max(0.05, 1 - blur * 0.05), // Blur effect
-                        transform: [{ rotate: `${rotation}deg` }], // Rotation
-                      },
-                    ]}
-                  />
-                )}
-                
-                {/* NO UPLOAD STATE */}
-                {!imageUri && (
-                  <View style={styles.uploadIcon}>
-                    <ThemedText style={styles.uploadText}>Tap Image</ThemedText>
+                {imageUri ? (
+                  <>
+                    <Image
+                      source={{ uri: imageUri }}
+                      style={[
+                        styles.stressImage,
+                        {
+                          width: PREVIEW_SIZE,
+                          height: PREVIEW_SIZE,
+                          opacity: Math.max(0.05, 1 - blur * 0.05),
+                          transform: [{ rotate: `${rotation}deg` }],
+                        },
+                      ]}
+                    />
+                    {noise > 0 && (
+                      <View
+                        style={[
+                          StyleSheet.absoluteFillObject,
+                          {
+                            borderRadius: 18,
+                            backgroundColor: `rgba(100,100,100,${noise * 0.6})`,
+                          },
+                        ]}
+                      />
+                    )}
+                    {erase > 0 && (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          bottom: -2,
+                          right: -2,
+                          width: PREVIEW_SIZE * erase,
+                          height: PREVIEW_SIZE * erase,
+                          backgroundColor: 'black',
+                          borderRadius: 16,
+                        }}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <View style={styles.uploadPlaceholder}>
+                    <IconUpload size={40} />
+                    <ThemedText style={styles.uploadText}>Tap to upload image</ThemedText>
                   </View>
-                )}
-                
-                {/* ✅ NOISE - ON IMAGE */}
-                {imageUri && noise > 0 && (
-                  <View
-                    style={[
-                      styles.noiseOverlay,
-                      {
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: `rgba(100,100,100,${noise * 0.6})`,
-                      },
-                    ]}
-                  />
-                )}
-                
-                {/* ✅ ERASE - BOTTOM RIGHT CORNER ON IMAGE */}
-                {imageUri && erase > 0 && (
-                  <View
-                    style={[
-                      styles.eraseCorner,
-                      {
-                        position: 'absolute',
-                        bottom: -2,
-                        right: -2,
-                        width: PREVIEW_SIZE * erase,
-                        height: PREVIEW_SIZE * erase,
-                        backgroundColor: 'black',
-                        borderRadius: 16,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 2, height: 2 },
-                        shadowOpacity: 0.8,
-                        shadowRadius: 4,
-                        elevation: 8,
-                      },
-                    ]}
-                  />
                 )}
               </TouchableOpacity>
 
-              {/* ✅ ACTIVE EFFECTS INDICATORS */}
-              {imageUri && (
-                <View style={styles.effectBadges}>
-                  {blur > 0 && (
-                    <View style={[styles.badge, styles.blurBadge]}>
-                      <ThemedText style={styles.badgeText}>🌫️ {blur.toFixed(1)}px</ThemedText>
-                    </View>
-                  )}
-                  {Math.abs(rotation) > 1 && (
-                    <View style={[styles.badge, styles.rotateBadge]}>
-                      <ThemedText style={styles.badgeText}>↻ {rotation}°</ThemedText>
-                    </View>
-                  )}
-                  {noise > 0 && (
-                    <View style={[styles.badge, styles.noiseBadge]}>
-                      <ThemedText style={styles.badgeText}>⚡ {noise.toFixed(2)}</ThemedText>
-                    </View>
-                  )}
-                  {erase > 0 && (
-                    <View style={[styles.badge, styles.eraseBadge]}>
-                      <ThemedText style={styles.badgeText}>✂️ {Math.round(erase * 100)}%</ThemedText>
-                    </View>
-                  )}
+              {/* ── EFFECT BADGES ── */}
+              {imageUri && activeBadges.length > 0 && (
+                <View style={styles.badgeRow}>
+                  {activeBadges.map((b) => (
+                    <EffectBadge key={b.variant} variant={b.variant} value={b.value} />
+                  ))}
                 </View>
+              )}
+
+              {/* No-effect state hint */}
+              {imageUri && activeBadges.length === 0 && (
+                <ThemedText style={styles.noEffectHint}>
+                  Adjust sliders below to apply stress effects
+                </ThemedText>
               )}
             </View>
           </View>
         )}
 
-
-        {/* ================= DATASET MODE ================= */}
+        {/* ── DATASET MODE ── */}
         {mode === 'DATASET' && (
           <View style={styles.section}>
             <View style={styles.inputGroup}>
@@ -298,18 +422,17 @@ export default function UploadScreen() {
               <Dropdown
                 value={selectedDataset}
                 items={datasetItems}
-                onValueChange={(value) => setSelectedDataset(value as string)}
+                onValueChange={(v) => setSelectedDataset(v as string)}
                 placeholder="Select dataset"
               />
             </View>
 
-            {/* ✅ DATASET GRID PREVIEW */}
             <View style={styles.inputGroup}>
-              <ThemedText style={styles.label}>Dataset Preview (6x6 Sample)</ThemedText>
+              <ThemedText style={styles.label}>Dataset Preview (6×6 Sample)</ThemedText>
               <View style={styles.datasetGrid}>
                 {Array.from({ length: 36 }).map((_, i) => {
                   const digit = i % 10;
-                  const randRotation = (Math.random() - 0.5) * rotation * 0.8;
+                  const randRot = (Math.random() - 0.5) * rotation * 0.8;
                   return (
                     <View
                       key={i}
@@ -317,89 +440,73 @@ export default function UploadScreen() {
                         styles.gridCell,
                         {
                           opacity: Math.max(0.2, 1 - blur * 0.03),
-                          transform: [{ rotate: `${randRotation}deg` }],
-                          backgroundColor: noise > 0 
-                            ? `rgba(30, 64, 175, ${0.9 - noise * 0.3})`
+                          transform: [{ rotate: `${randRot}deg` }],
+                          backgroundColor: noise > 0
+                            ? `rgba(30,64,175,${0.9 - noise * 0.3})`
                             : '#1e40af',
                         },
                       ]}
                     >
                       <ThemedText style={styles.digitText}>{digit}</ThemedText>
+
+                      {/* Per-cell erase — bottom-right black square, clipped by cell border-radius */}
+                      {erase > 0 && (
+                        <View
+                          style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            right: 0,
+                            width: 44 * erase,
+                            height: 44 * erase,
+                            backgroundColor: '#000000',
+                          }}
+                        />
+                      )}
                     </View>
                   );
                 })}
               </View>
+
+              {/* ── EFFECT BADGES ── */}
+              {activeBadges.length > 0 && (
+                <View style={styles.badgeRow}>
+                  {activeBadges.map((b) => (
+                    <EffectBadge key={b.variant} variant={b.variant} value={b.value} />
+                  ))}
+                </View>
+              )}
+
+              {/* No-effect state hint */}
+              {activeBadges.length === 0 && (
+                <ThemedText style={styles.noEffectHint}>
+                  Adjust sliders below to apply stress effects
+                </ThemedText>
+              )}
             </View>
           </View>
         )}
 
-        {/* ================= ERROR ================= */}
+        {/* Error */}
         {error && (
-          <View style={[styles.errorBox, { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
+          <View style={styles.errorBox}>
             <ThemedText style={styles.errorText}>{error}</ThemedText>
           </View>
         )}
 
-        {/* ================= STRESS CONTROLS ================= */}
-        <View
-          style={[
-            styles.stressSection,
-            {
-              backgroundColor: colors.cardBackground,
-              borderColor: colors.border,
-            },
-          ]}
-        >
+        {/* Stress Controls */}
+        <View style={[styles.stressSection, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
             <ThemedText style={styles.sectionTitle}>Robustness Controls</ThemedText>
           </View>
-
-          <Slider
-            label="Blur (px)"
-            value={blur}
-            setValue={setBlur}
-            min={0}
-            max={15}
-            step={0.5}
-            info="0-15px Gaussian blur"
-          />
-          <Slider
-            label="Rotation (°)"
-            value={rotation}
-            setValue={setRotation}
-            min={-30}
-            max={30}
-            step={1}
-            info="±30° rotation"
-          />
-          <Slider
-            label="Noise"
-            value={noise}
-            setValue={setNoise}
-            min={0}
-            max={1.5}
-            step={0.05}
-            info="0-1.5 intensity Gaussian noise"
-          />
-          <Slider
-            label="Erase (%)"
-            value={erase}
-            setValue={setErase}
-            min={0}
-            max={0.6}
-            step={0.05}
-            info="0-60% bottom-right corner erase"
-          />
+          <Slider label="Blur (px)"    value={blur}     setValue={setBlur}     min={0}   max={15}  step={0.5}  info="0–15px Gaussian blur" />
+          <Slider label="Rotation (°)" value={rotation} setValue={setRotation} min={-30} max={30}  step={1}    info="±30° rotation" />
+          <Slider label="Noise"        value={noise}    setValue={setNoise}    min={0}   max={1.5} step={0.05} info="0–1.5 intensity Gaussian noise" />
+          <Slider label="Erase (%)"    value={erase}    setValue={setErase}    min={0}   max={0.6} step={0.05} info="0–60% bottom-right corner erase" />
         </View>
 
-        {/* ================= RUN BUTTON ================= */}
+        {/* Run Button */}
         <TouchableOpacity
-          style={[
-            styles.runButton,
-            {
-              backgroundColor: loading ? colors.border : colors.primary,
-            },
-          ]}
+          style={[styles.runButton, { backgroundColor: loading ? colors.border : colors.primary }]}
           onPress={runInference}
           disabled={loading || (mode === 'SINGLE' && !imageUri)}
           activeOpacity={0.8}
@@ -413,139 +520,100 @@ export default function UploadScreen() {
             <ThemedText style={styles.runButtonText}>Run Robustness Test</ThemedText>
           )}
         </TouchableOpacity>
+
       </ScrollView>
     </ThemedView>
   );
 }
 
+/* ─────────────────────────────────────────────
+   STYLES
+───────────────────────────────────────────── */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.7,
-    lineHeight: 22,
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  previewContainer: {
-    borderRadius: 20,
-    borderWidth: 2,
-    borderStyle: 'dashed',
+  container: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 40 },
+
+  section: { marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 8 },
+  subtitle: { fontSize: 16, opacity: 0.7, lineHeight: 22 },
+
+  label: { fontSize: 15, fontWeight: '600', marginBottom: 12 },
+  inputGroup: { marginBottom: 24 },
+
+  // Image container
+  imageContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(148,163,184,0.35)',
+    borderStyle: 'dashed',
+    padding: 24,
+    backgroundColor: 'rgba(15,23,42,0.5)',
+    minHeight: 200,
+    overflow: 'hidden',
   },
   stressImage: {
-    borderRadius: 18,
+    borderRadius: 14,
     resizeMode: 'contain',
-  },
-  noiseOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    borderRadius: 18,
-  },
-  eraseOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    borderRadius: 16,
   },
   uploadPlaceholder: {
     alignItems: 'center',
-    paddingVertical: 40,
+    gap: 12,
+    paddingVertical: 24,
   },
   uploadText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
-    opacity: 0.6,
-    textAlign: 'center',
     color: '#64748b',
   },
-  stressIndicators: {
+
+  // Badge row
+  badgeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: 'rgba(59,130,246,0.08)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.2)',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+    paddingHorizontal: 4,
   },
-  indicator: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: 'rgba(59,130,246,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.3)',
-  },
-  indicatorText: {
+  noEffectHint: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#3b82f6',
+    color: '#475569',
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
   },
+
+  // Dataset grid
   datasetGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#0f172a',
     borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
   },
   gridCell: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    margin: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    margin: 3,
+    overflow: 'hidden',
   },
   digitText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
   },
+
+  // Error
   errorBox: {
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 14,
     marginBottom: 20,
+    backgroundColor: 'rgba(239,68,68,0.1)',
     borderWidth: 1,
     borderColor: 'rgba(239,68,68,0.3)',
   },
@@ -554,6 +622,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+
+  // Stress section
   stressSection: {
     borderRadius: 20,
     borderWidth: 1,
@@ -564,97 +634,28 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#ffffff',
   },
+
+  // Run button
   runButton: {
     flexDirection: 'row',
-    borderRadius: 20,
+    borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
     minHeight: 60,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
   },
   runButtonText: {
     color: '#ffffff',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
-  spinner: {
-    width: 24,
-    height: 24,
-  },
-  imageContainer: {
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: 20,
-  borderWidth: 2,
-  borderColor: 'rgba(148, 163, 184, 0.5)',
-  borderStyle: 'dashed',
-  padding: 24,
-  backgroundColor: 'rgba(248, 250, 252, 0.8)',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.15,
-  shadowRadius: 12,
-  elevation: 10,
-  },
-  uploadIcon: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  eraseCorner: {
-    shadowOpacity: 0.8,
-  },
-  effectBadges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 16,
-    padding: 12,
-  },
-  badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    minWidth: 60,
-    alignItems: 'center',
-  },
-  blurBadge: {
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
-    borderColor: 'rgba(99, 102, 241, 0.4)',
-    borderWidth: 1,
-  },
-  rotateBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    borderColor: 'rgba(16, 185, 129, 0.4)',
-    borderWidth: 1,
-  },
-  noiseBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderColor: 'rgba(245, 158, 11, 0.4)',
-    borderWidth: 1,
-  },
-  eraseBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-    borderWidth: 1,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1e293b',
-  },
-
+  spinner: { width: 24, height: 24 },
 });
