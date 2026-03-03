@@ -996,31 +996,31 @@ def export_pdf_from_db(id: str):
         # =========================
         # FAMILY-WISE RESULTS
         # =========================
-        for family, models in models_by_family.items():
+        for family in ["MNIST", "CIFAR"]:
+            if family not in models_by_family:
+                continue
 
-            # ---- METRICS TABLE ----
+            models = models_by_family[family]
+
+            if not isinstance(models, dict):
+                continue
+
             story.append(Paragraph(f"{family} Models", styles["Heading2"]))
             story.append(Table(build_pdf_metric_rows(models)))
             story.append(Spacer(1, 20))
 
-            # ---- CONFUSION MATRICES ----
-            story.append(
-                Paragraph(f"{family} Confusion Matrices", styles["Heading3"])
-            )
+            story.append(Paragraph(f"{family} Confusion Matrices", styles["Heading3"]))
 
             for model_name, data in models.items():
                 eval_data = data.get("evaluation")
                 if not eval_data:
                     continue
 
-                story.append(
-                    Paragraph(model_name, styles["Heading4"])
-                )
+                story.append(Paragraph(model_name, styles["Heading4"]))
                 story.append(Table(eval_data["confusion_matrix"]))
                 story.append(Spacer(1, 12))
 
             story.append(Spacer(1, 20))
-
         # =========================
         # BUILD PDF
         # =========================

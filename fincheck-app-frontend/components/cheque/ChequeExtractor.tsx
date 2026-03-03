@@ -89,7 +89,7 @@ export default function ChequeExtractor() {
     try {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
-        quality: 1,
+        quality: 0.6,
       });
 
       if (!result.canceled && result.assets[0]) {

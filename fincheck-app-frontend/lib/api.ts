@@ -3,7 +3,7 @@ import * as Sharing from "expo-sharing";
 import { Buffer } from "buffer";
 
 export const API_BASE_URL =
-  "https://dde6-103-5-112-80.ngrok-free.app";
+  "https://2bb6-115-243-91-113.ngrok-free.app";
 
 const NGROK_HEADERS = {
   "ngrok-skip-browser-warning": "true",
@@ -48,24 +48,19 @@ export async function downloadResultPdf(id: string) {
     throw new ApiError("PDF download failed", res.status);
   }
 
-  // ✅ Binary fetch
   const arrayBuffer = await res.arrayBuffer();
 
-  // ✅ Convert to base64
   const base64 = Buffer.from(arrayBuffer).toString("base64");
 
-  // ✅ Correct document directory
   const fileUri =
     `${FileSystem.documentDirectory}evaluation_${id}.pdf`;
 
-  // ✅ WRITE USING STRING LITERAL (TS-safe)
   await FileSystem.writeAsStringAsync(
     fileUri,
     base64,
     { encoding: "base64" }
   );
 
-  // ✅ Share
   await Sharing.shareAsync(fileUri);
 
   return fileUri;
