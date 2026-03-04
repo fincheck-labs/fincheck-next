@@ -47,6 +47,7 @@ def get_easyocr_reader():
 import io
 from torchvision.datasets import CIFAR10
 from model_def import CIFARCNN
+import torch.quantization as quant
 
 
 
@@ -232,31 +233,32 @@ def startup_event():
 
 def load_models():
     MNIST_MODELS.clear()
+    CIFAR_MODELS.clear()
 
+    # ---------- MNIST ----------
     for f in MODEL_FILES:
-        model_path = MODEL_DIR / f
-
-        if not model_path.exists():
-            raise RuntimeError(f"❌ Model file missing: {f}")
-
+        path = MODEL_DIR / f
         model = MNISTCNN().to(DEVICE)
-        model.load_state_dict(
-            torch.load(model_path, map_location=DEVICE),
-            strict=False,
-        )
+        model.load_state_dict(torch.load(path, map_location=DEVICE), strict=False)
         model.eval()
-
         MNIST_MODELS[f] = model
 
-    print("✅ MNIST models loaded into memory")
+    print("✅ MNIST models loaded")
 
+    # ---------- CIFAR ----------
     for f in CIFAR_MODEL_FILES:
-        model_path = MODEL_DIR / f
+        path = MODEL_DIR / f
+        state_dict = torch.load(path, map_location="cpu")
+
+        # 🔥 FIX: dequantize only quantized CIFAR
+        if "quantized" in f:
+            print(f"⚠️ Dequantizing {f}")
+            for k, v in state_dict.items():
+                if hasattr(v, "dequantize"):
+                    state_dict[k] = v.dequantize()
+
         model = CIFARCNN().to(DEVICE)
-        model.load_state_dict(
-            torch.load(model_path, map_location=DEVICE),
-            strict=False
-        )
+        model.load_state_dict(state_dict, strict=False)
         model.eval()
         CIFAR_MODELS[f] = model
 
@@ -994,31 +996,31 @@ def export_pdf_from_db(id: str):
         # =========================
         # FAMILY-WISE RESULTS
         # =========================
-        for family, models in models_by_family.items():
+        for family in ["MNIST", "CIFAR"]:
+            if family not in models_by_family:
+                continue
 
-            # ---- METRICS TABLE ----
+            models = models_by_family[family]
+
+            if not isinstance(models, dict):
+                continue
+
             story.append(Paragraph(f"{family} Models", styles["Heading2"]))
             story.append(Table(build_pdf_metric_rows(models)))
             story.append(Spacer(1, 20))
 
-            # ---- CONFUSION MATRICES ----
-            story.append(
-                Paragraph(f"{family} Confusion Matrices", styles["Heading3"])
-            )
+            story.append(Paragraph(f"{family} Confusion Matrices", styles["Heading3"]))
 
             for model_name, data in models.items():
                 eval_data = data.get("evaluation")
                 if not eval_data:
                     continue
 
-                story.append(
-                    Paragraph(model_name, styles["Heading4"])
-                )
+                story.append(Paragraph(model_name, styles["Heading4"]))
                 story.append(Table(eval_data["confusion_matrix"]))
                 story.append(Spacer(1, 12))
 
             story.append(Spacer(1, 20))
-
         # =========================
         # BUILD PDF
         # =========================
@@ -1753,3 +1755,24 @@ def get_result(id: str):
 
     doc["_id"] = str(doc["_id"])
     return doc
+
+@app.get("/results")
+def get_all_results():
+    docs = list(
+        mongo_results
+        .find({}, {"data": 0})
+        .sort("meta.createdAt", -1)
+    )
+
+    for d in docs:
+        d["_id"] = str(d["_id"])
+        meta_created = d.get("meta", {}).get("createdAt")
+        if meta_created is not None:
+            if hasattr(meta_created, "isoformat"):
+                d["createdAt"] = meta_created.isoformat() + "Z"
+            else:
+                d["createdAt"] = str(meta_created)
+        else:
+            d["createdAt"] = None
+
+    return docs
