@@ -3,7 +3,7 @@ import * as Sharing from "expo-sharing";
 import { Buffer } from "buffer";
 
 export const API_BASE_URL =
-  "https://2bb6-115-243-91-113.ngrok-free.app";
+  "https://947f-202-88-252-190.ngrok-free.app";
 
 const NGROK_HEADERS = {
   "ngrok-skip-browser-warning": "true",

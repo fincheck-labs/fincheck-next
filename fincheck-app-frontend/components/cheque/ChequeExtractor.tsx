@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { ThemedView } from '@/components/ui/ThemedView';
 import { ThemedText } from '@/components/ui/ThemedText';
@@ -16,6 +17,7 @@ import { Header } from '@/components/layout/Header';
 import { Drawer } from '@/components/layout/Drawer';
 import { useTheme } from '@/hooks/useTheme';
 import { extractChequeAmount } from '@/lib/api';
+import * as FileSystem from 'expo-file-system/legacy';
 
 type ChequeResult = {
   amount_digits?: string | null;
@@ -57,19 +59,37 @@ export default function ChequeExtractor() {
     return true;
   };
 
+  const compressImage = async (uri: string) => {
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 1600 } }], 
+      {
+        compress: 0.8,
+        format: ImageManipulator.SaveFormat.JPEG,
+      }
+    );
+
+    return result.uri;
+  };
+
   const pickImage = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: false,
         quality: 1,
         allowsMultipleSelection: false,
       });
 
       if (!result.canceled && result.assets[0]) {
+        const info = await FileSystem.getInfoAsync(result.assets[0].uri);
+        if (info.exists) {
+          console.log("Image size:", info.size);
+        }
+
         setImageUri(result.assets[0].uri);
         setResult(null);
         setError(null);
@@ -89,11 +109,23 @@ export default function ChequeExtractor() {
     try {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
-        quality: 0.6,
+        quality: 1,
       });
 
       if (!result.canceled && result.assets[0]) {
-        setImageUri(result.assets[0].uri);
+        const info = await FileSystem.getInfoAsync(result.assets[0].uri);
+        if (info.exists) {
+          console.log("Image size:", info.size);
+        }
+
+        const compressed = await compressImage(result.assets[0].uri);
+
+        const _info = await FileSystem.getInfoAsync(compressed);
+        if (_info.exists) {
+          console.log("Image size:", _info.size);
+        }
+
+        setImageUri(compressed);
         setResult(null);
         setError(null);
         setShowRawOcr(false);
@@ -220,7 +252,7 @@ export default function ChequeExtractor() {
               disabled={loading}
               activeOpacity={0.7}
             >
-              <ThemedText style={styles.buttonText}>📁 Choose File</ThemedText>
+              <ThemedText style={styles.buttonText}>Choose File</ThemedText>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -233,7 +265,7 @@ export default function ChequeExtractor() {
               disabled={loading}
               activeOpacity={0.7}
             >
-              <ThemedText style={styles.buttonText}>📷 Take Photo</ThemedText>
+              <ThemedText style={styles.buttonText}>Take Photo</ThemedText>
             </TouchableOpacity>
           </View>
 
