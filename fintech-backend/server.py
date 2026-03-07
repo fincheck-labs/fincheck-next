@@ -863,7 +863,7 @@ async def verify_digit_only(
             }
 
         threshold_pct = confidence_threshold * 100
-        buffer_pct = threshold_pct - 5  
+        buffer_pct = threshold_pct - 5
 
         analysis = []
         final_digits = []
@@ -949,10 +949,12 @@ async def verify_digit_only(
 from bson import ObjectId
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 from datetime import datetime
 import io
+
 
 @app.get("/export/pdf/{id}")
 def export_pdf_from_db(id: str):
@@ -965,18 +967,36 @@ def export_pdf_from_db(id: str):
         if not doc:
             raise HTTPException(404, "Result not found")
 
-        models_by_family = doc["data"]   # { MNIST: {...}, CIFAR: {...} }
+        models_by_family = doc["data"]
         meta = doc.get("meta", {})
 
         # =========================
         # PDF SETUP
         # =========================
         buffer = io.BytesIO()
+
         styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            "TitleStyle",
+            parent=styles["Title"],
+            fontSize=26,
+            textColor=colors.HexColor("#1e3a8a"),
+            alignment=1,
+        )
+
+        section_style = ParagraphStyle(
+            "SectionStyle",
+            parent=styles["Heading2"],
+            textColor=colors.HexColor("#2563eb"),
+        )
+
         story = []
 
-        # ---------- TITLE ----------
-        story.append(Paragraph("Model Evaluation Report", styles["Title"]))
+        # =========================
+        # TITLE
+        # =========================
+        story.append(Paragraph("Model Evaluation Report", title_style))
         story.append(Spacer(1, 12))
 
         story.append(
@@ -985,18 +1005,24 @@ def export_pdf_from_db(id: str):
                 styles["Normal"],
             )
         )
-        story.append(Spacer(1, 16))
-
-        # ---------- META ----------
-        story.append(Paragraph("Experiment Settings", styles["Heading2"]))
-        for k, v in meta.items():
-            story.append(Paragraph(f"{k}: {v}", styles["Normal"]))
         story.append(Spacer(1, 20))
 
         # =========================
-        # FAMILY-WISE RESULTS
+        # META SECTION
+        # =========================
+        story.append(Paragraph("Experiment Settings", section_style))
+        story.append(Spacer(1, 10))
+
+        for k, v in meta.items():
+            story.append(Paragraph(f"<b>{k}</b>: {v}", styles["Normal"]))
+
+        story.append(Spacer(1, 25))
+
+        # =========================
+        # MODEL RESULTS
         # =========================
         for family in ["MNIST", "CIFAR"]:
+
             if family not in models_by_family:
                 continue
 
@@ -1005,27 +1031,68 @@ def export_pdf_from_db(id: str):
             if not isinstance(models, dict):
                 continue
 
-            story.append(Paragraph(f"{family} Models", styles["Heading2"]))
-            story.append(Table(build_pdf_metric_rows(models)))
+            # ----- FAMILY HEADER -----
+            story.append(Paragraph(f"{family} Models", section_style))
+            story.append(Spacer(1, 10))
+
+            rows = build_pdf_metric_rows(models)
+
+            table = Table(rows)
+
+            table.setStyle(
+                TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563eb")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+
+                    ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+                     [colors.whitesmoke, colors.lightgrey]),
+                ])
+            )
+
+            story.append(table)
             story.append(Spacer(1, 20))
 
+            # =========================
+            # CONFUSION MATRICES
+            # =========================
             story.append(Paragraph(f"{family} Confusion Matrices", styles["Heading3"]))
+            story.append(Spacer(1, 10))
 
             for model_name, data in models.items():
+
                 eval_data = data.get("evaluation")
                 if not eval_data:
                     continue
 
-                story.append(Paragraph(model_name, styles["Heading4"]))
-                story.append(Table(eval_data["confusion_matrix"]))
-                story.append(Spacer(1, 12))
+                story.append(Paragraph(f"<b>{model_name}</b>", styles["Heading4"]))
 
-            story.append(Spacer(1, 20))
+                cm_table = Table(eval_data["confusion_matrix"])
+
+                cm_table.setStyle(
+                    TableStyle([
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ])
+                )
+
+                story.append(cm_table)
+                story.append(Spacer(1, 15))
+
+            story.append(Spacer(1, 25))
+
         # =========================
         # BUILD PDF
         # =========================
         pdf = SimpleDocTemplate(buffer)
         pdf.build(story)
+
         buffer.seek(0)
 
         return StreamingResponse(
@@ -1038,8 +1105,6 @@ def export_pdf_from_db(id: str):
 
     except Exception as e:
         raise HTTPException(500, str(e))
-
-
 
 # ==================================================
 # CHEQUE PREPROCESSING
@@ -1569,7 +1634,7 @@ def _run_word_extraction(image_np: np.ndarray) -> tuple:
         if not best_text:
             best_text = text
 
-    # Clean the word string — extract just the number words 
+    # Clean the word string — extract just the number words
     if best_words and best_value is not None:
         cleaned = _scan_number_word_sequence(best_words)
         if cleaned and words_to_number(cleaned) == best_value:
