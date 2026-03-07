@@ -94,7 +94,7 @@ export default function ChequeAmountExtractor() {
             </h1>
           </div>
           <p className="text-lg text-gray-600 max-w-md mx-auto leading-relaxed">
-            AI-powered OCR with rule-based verification & YOLOv8 fallback for handwritten cheques
+            AI-powered OCR with rule-based verification & OpenOCR fallback for handwritten cheques
           </p>
         </div>
 

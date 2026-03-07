@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { Upload, Loader2, CheckCircle, AlertCircle, Zap, Image, Crop, Brain } from "lucide-react"
+import { AlertCircle, Brain, CheckCircle, Crop, Image, Loader2, Upload, Zap } from "lucide-react"
+import { useRef, useState } from "react"
 
 export default function DigitVerifyPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -50,9 +50,9 @@ export default function DigitVerifyPage() {
     setResult(null)
 
     try {
-      const res = await fetch("http://localhost:8000/verify-digit-only", { 
-        method: "POST", 
-        body: fd 
+      const res = await fetch("http://localhost:8000/verify-digit-only", {
+        method: "POST",
+        body: fd
       })
       const data = await res.json()
       setResult(data)
@@ -73,30 +73,30 @@ export default function DigitVerifyPage() {
   /* ================= FIXED FILE HANDLER ================= */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null
-    
+
     if (selectedFile) {
       // File validation
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
       const maxSize = 10 * 1024 * 1024 // 10MB
-      
+
       if (!validTypes.includes(selectedFile.type)) {
         alert("Please upload only JPG, PNG, or WebP images")
         e.target.value = ""
         return
       }
-      
+
       if (selectedFile.size > maxSize) {
         alert(`File too large. Max 10MB (${formatFileSize(maxSize)})`)
         e.target.value = ""
         return
       }
-      
+
       setFile(selectedFile)
       setFileName(selectedFile.name)
       setFileSize(formatFileSize(selectedFile.size))
       setResult(null)
     }
-    
+
     // Reset input
     e.target.value = ""
   }
@@ -134,26 +134,24 @@ export default function DigitVerifyPage() {
           <div className="space-y-6">
             {/* Upload Area */}
             <div className="relative">
-              <div 
-                className={`w-full p-10 border-4 border-dashed rounded-3xl text-center transition-all duration-300 hover:shadow-2xl group bg-white/80 backdrop-blur-xl ${
-                  file 
-                    ? "border-emerald-400 bg-emerald-50/80 shadow-xl ring-4 ring-emerald-100/50" 
-                    : "border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/60 hover:shadow-emerald-100/50"
-                }`}
+              <div
+                className={`w-full p-10 border-4 border-dashed rounded-3xl text-center transition-all duration-300 hover:shadow-2xl group bg-white/80 backdrop-blur-xl ${file
+                  ? "border-emerald-400 bg-emerald-50/80 shadow-xl ring-4 ring-emerald-100/50"
+                  : "border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/60 hover:shadow-emerald-100/50"
+                  }`}
               >
                 <div className="flex flex-col items-center gap-6 pointer-events-none">
-                  <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg transition-all duration-300 ring-4 ring-white/50 ${
-                    file 
-                      ? "bg-emerald-500/90 text-white shadow-emerald-500/25 scale-110" 
-                      : "bg-linear-to-br from-emerald-500 to-blue-500 text-white hover:scale-110 shadow-blue-500/25"
-                  }`}>
+                  <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg transition-all duration-300 ring-4 ring-white/50 ${file
+                    ? "bg-emerald-500/90 text-white shadow-emerald-500/25 scale-110"
+                    : "bg-linear-to-br from-emerald-500 to-blue-500 text-white hover:scale-110 shadow-blue-500/25"
+                    }`}>
                     {file ? (
                       <CheckCircle className="w-12 h-12 drop-shadow-lg" />
                     ) : (
                       <Upload className="w-12 h-12 drop-shadow-lg" />
                     )}
                   </div>
-                  
+
                   {file ? (
                     <div className="space-y-2">
                       <p className="font-bold text-xl text-emerald-700 drop-shadow-sm">
@@ -166,14 +164,14 @@ export default function DigitVerifyPage() {
                   ) : (
                     <div className="space-y-2">
                       <p className="font-bold text-xl text-slate-800 group-hover:text-emerald-700 transition-colors">
-                        Click or drag cheque image to upload
+                        Click or drag  image to upload
                       </p>
                       <p className="text-lg text-slate-500">PNG, JPG, WebP up to 10MB</p>
                     </div>
                   )}
                 </div>
               </div>
-              
+
               {/* Hidden file input */}
               <input
                 ref={fileInputRef}
@@ -214,14 +212,14 @@ export default function DigitVerifyPage() {
                   Confidence Threshold
                 </h3>
               </div>
-              
+
               <div className="space-y-6">
                 <div className="flex justify-between text-sm font-mono text-slate-600 tracking-wide">
                   <span className="font-bold text-slate-800">Strict</span>
                   <span className="text-2xl font-bold text-slate-900 drop-shadow-sm">{threshold}%</span>
                   <span className="font-bold text-slate-800">Lenient</span>
                 </div>
-                
+
                 <input
                   type="range"
                   min={50}
@@ -231,7 +229,7 @@ export default function DigitVerifyPage() {
                   onChange={(e) => setThreshold(Number(e.target.value))}
                   className="w-full h-3 bg-linear-to-r from-slate-200 to-slate-300 rounded-2xl appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-600 shadow-inner transition-all duration-300"
                 />
-                
+
                 <div className="grid grid-cols-2 gap-4 text-xs bg-linear-to-r from-emerald-50 to-amber-50 p-4 rounded-2xl border border-emerald-100/50">
                   <div className="text-emerald-700 font-semibold flex items-center gap-2">
                     <CheckCircle className="w-4 h-4" />
@@ -249,11 +247,10 @@ export default function DigitVerifyPage() {
             <button
               onClick={verify}
               disabled={!file || loading}
-              className={`group w-full py-5 px-8 rounded-3xl font-bold text-xl shadow-2xl transition-all duration-300 flex items-center justify-center gap-4 transform hover:-translate-y-2 active:translate-y-0 ${
-                !file || loading
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border-2 border-slate-200"
-                  : "bg-linear-to-r from-emerald-600 via-emerald-500 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white hover:shadow-3xl hover:shadow-emerald-500/25 hover:ring-4 ring-emerald-500/30"
-              }`}
+              className={`group w-full py-5 px-8 rounded-3xl font-bold text-xl shadow-2xl transition-all duration-300 flex items-center justify-center gap-4 transform hover:-translate-y-2 active:translate-y-0 ${!file || loading
+                ? "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border-2 border-slate-200"
+                : "bg-linear-to-r from-emerald-600 via-emerald-500 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white hover:shadow-3xl hover:shadow-emerald-500/25 hover:ring-4 ring-emerald-500/30"
+                }`}
             >
               {loading ? (
                 <>
@@ -263,7 +260,7 @@ export default function DigitVerifyPage() {
               ) : (
                 <>
                   <Zap className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                  <span>Verify Cheque Digits</span>
+                  <span>Verify Image Digits</span>
                 </>
               )}
             </button>
@@ -274,13 +271,12 @@ export default function DigitVerifyPage() {
             {result && (
               <>
                 {/* Verdict Card */}
-                <div className={`p-10 rounded-3xl shadow-2xl border-8 transition-all duration-700 group hover:shadow-3xl ${
-                  result.verdict === "VALID" 
-                    ? "bg-linear-to-br from-emerald-50 to-emerald-25 border-emerald-300 ring-4 ring-emerald-200/50" 
-                    : result.verdict === "AMBIGUOUS"
-                    ? "bg-linear-to-br from-amber-50 to-amber-25 border-amber-300 ring-4 ring-amber-200/50" 
+                <div className={`p-10 rounded-3xl shadow-2xl border-8 transition-all duration-700 group hover:shadow-3xl ${result.verdict === "VALID"
+                  ? "bg-linear-to-br from-emerald-50 to-emerald-25 border-emerald-300 ring-4 ring-emerald-200/50"
+                  : result.verdict === "AMBIGUOUS"
+                    ? "bg-linear-to-br from-amber-50 to-amber-25 border-amber-300 ring-4 ring-amber-200/50"
                     : "bg-linear-to-br from-red-50 to-red-25 border-red-300 ring-4 ring-red-200/50"
-                }`}>
+                  }`}>
                   <div className="flex items-start gap-6">
                     {result.verdict === "VALID" && (
                       <CheckCircle className="w-20 h-20 text-emerald-500 drop-shadow-2xl shrink-0 mt-1" />
@@ -291,7 +287,7 @@ export default function DigitVerifyPage() {
                     {result.verdict !== "VALID" && result.verdict !== "AMBIGUOUS" && (
                       <AlertCircle className="w-20 h-20 text-red-500 drop-shadow-2xl shrink-0 mt-1" />
                     )}
-                    
+
                     <div className="flex-1 space-y-4">
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Final Verdict</h2>
                       <p className={`text-5xl font-black uppercase tracking-widest ${statusColor(result.verdict)}`}>
@@ -320,8 +316,8 @@ export default function DigitVerifyPage() {
                         <div key={i} className="group hover:scale-[1.05] transition-all duration-300 hover:shadow-2xl">
                           <div className="bg-linear-to-br from-slate-50 to-white p-6 rounded-2xl border-2 border-slate-100 hover:border-emerald-200 group-hover:shadow-xl transition-all">
                             <div className="w-full h-48 flex items-center justify-center bg-slate-50 rounded-xl overflow-hidden shadow-inner">
-                              <img 
-                                src={imgSrc(img.src)} 
+                              <img
+                                src={imgSrc(img.src)}
                                 className="w-full h-full object-contain"
                                 alt={img.title}
                               />
@@ -351,20 +347,18 @@ export default function DigitVerifyPage() {
                       {result.analysis.map((a: any) => (
                         <div
                           key={a.position}
-                          className={`group p-8 rounded-3xl shadow-xl border-4 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 cursor-pointer ${
-                            a.status === "VALID" 
-                              ? "bg-emerald-50 border-emerald-300 hover:border-emerald-400 hover:shadow-emerald-200/50" 
-                              : a.status === "AMBIGUOUS"
+                          className={`group p-8 rounded-3xl shadow-xl border-4 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 cursor-pointer ${a.status === "VALID"
+                            ? "bg-emerald-50 border-emerald-300 hover:border-emerald-400 hover:shadow-emerald-200/50"
+                            : a.status === "AMBIGUOUS"
                               ? "bg-amber-50 border-amber-300 hover:border-amber-400 hover:shadow-amber-200/50"
                               : "bg-red-50 border-red-300 hover:border-red-400 hover:shadow-red-200/50"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-start gap-6">
-                            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-black shadow-2xl shrink-0 ring-4 ring-white/50 ${
-                              a.status === "VALID" ? "bg-emerald-500 text-white shadow-emerald-500/30" :
+                            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-black shadow-2xl shrink-0 ring-4 ring-white/50 ${a.status === "VALID" ? "bg-emerald-500 text-white shadow-emerald-500/30" :
                               a.status === "AMBIGUOUS" ? "bg-amber-500 text-white shadow-amber-500/30" :
-                              "bg-red-500 text-white shadow-red-500/30"
-                            }`}>
+                                "bg-red-500 text-white shadow-red-500/30"
+                              }`}>
                               {a.position}
                             </div>
                             <div className="space-y-3 flex-1 pt-2">
@@ -385,7 +379,7 @@ export default function DigitVerifyPage() {
                                   <span className="font-bold text-lg text-slate-700">Possible values:</span>
                                   <div className="flex gap-2 flex-wrap">
                                     {a.possible_values.map((val: string, i: number) => (
-                                      <span 
+                                      <span
                                         key={i}
                                         className="bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl font-mono font-bold text-sm shadow-sm transition-all cursor-pointer"
                                       >
