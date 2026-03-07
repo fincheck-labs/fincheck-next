@@ -1,26 +1,25 @@
 "use client"
 
-import { useEffect, useState, useMemo, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
-import ChartSection from "../../../../components/charts/ChartSection"
-import type { ChartItem } from "../../../../components/metrics/types"
-import { ConfusionMatrix } from "../../../../components/confusion-matrix"
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  Legend,
-  ScatterChart,
-  Scatter,
-  BarChart,
+import { useCallback, useEffect, useMemo, useState } from "react"
+import {
   Bar,
+  BarChart,
+  CartesianGrid,
   Cell,
-  LabelList
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis
 } from 'recharts'
+import ChartSection from "../../../../components/charts/ChartSection"
+import { ConfusionMatrix } from "../../../../components/confusion-matrix"
+import type { ChartItem } from "../../../../components/metrics/types"
 
 /* ================= CONSTANTS ================= */
 const MODEL_ORDER = [
@@ -52,9 +51,9 @@ type EAResult = {
 type EAOptimization =
   | EAResult
   | {
-      MNIST?: EAResult
-      CIFAR?: EAResult
-    }
+    MNIST?: EAResult
+    CIFAR?: EAResult
+  }
 
 type ResultDoc = {
   data: {
@@ -208,7 +207,7 @@ const RiskImprovementGraph = ({ eaData }: { eaData: any }) => {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="generation" />
           <YAxis unit="%" />
-          <Tooltip/>
+          <Tooltip />
           <Line dataKey="improvement" stroke="#ef4444" strokeWidth={3} />
         </LineChart>
       </ResponsiveContainer>
@@ -237,11 +236,11 @@ const AlphaEvolutionGraph = ({ eaData }: { eaData: any }) => {
           <YAxis unit="%" />
           <Tooltip />
           <Legend />
-          <Line 
-            type="monotone" 
-            dataKey="alpha" 
-            stroke="#3b82f6" 
-            strokeWidth={3} 
+          <Line
+            type="monotone"
+            dataKey="alpha"
+            stroke="#3b82f6"
+            strokeWidth={3}
             dot={{ fill: '#3b82f6', strokeWidth: 2 }}
           />
         </LineChart>
@@ -271,11 +270,11 @@ const FitnessEvolutionGraph = ({ eaData }: { eaData: any }) => {
           <YAxis />
           <Tooltip />
           <Legend />
-          <Line 
-            type="monotone" 
-            dataKey="fitness" 
-            stroke="#10b981" 
-            strokeWidth={3} 
+          <Line
+            type="monotone"
+            dataKey="fitness"
+            stroke="#10b981"
+            strokeWidth={3}
             dot={{ fill: '#10b981', strokeWidth: 2 }}
           />
         </LineChart>
@@ -439,7 +438,7 @@ const StatisticalSignificanceSection = ({ stats }: { stats: any }) => {
       <h2 className="text-2xl font-bold text-blue-900 flex items-center gap-3">
         📊 Statistical Significance Testing
       </h2>
-      
+
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {stats.paired_ttest && (
           <div className="bg-white p-6 rounded-xl border shadow-sm">
@@ -447,11 +446,10 @@ const StatisticalSignificanceSection = ({ stats }: { stats: any }) => {
             <div className="space-y-2 text-sm">
               <MetricRow label="t-statistic" value={stats.paired_ttest.t_stat.toFixed(3)} />
               <MetricRow label="p-value" value={stats.paired_ttest.p_value.toFixed(6)} />
-              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                stats.paired_ttest.significant 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-orange-100 text-orange-800'
-              }`}>
+              <div className={`px-3 py-1 rounded-full text-xs font-medium ${stats.paired_ttest.significant
+                ? 'bg-green-100 text-green-800'
+                : 'bg-orange-100 text-orange-800'
+                }`}>
                 {stats.paired_ttest.significant ? '✅ Significant (p<0.05)' : '❌ Not Significant'}
               </div>
             </div>
@@ -464,11 +462,10 @@ const StatisticalSignificanceSection = ({ stats }: { stats: any }) => {
             <div className="space-y-2 text-sm">
               <MetricRow label="Statistic" value={stats.wilcoxon.statistic.toFixed(0)} />
               <MetricRow label="p-value" value={stats.wilcoxon.p_value.toFixed(6)} />
-              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                stats.wilcoxon.significant 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-orange-100 text-orange-800'
-              }`}>
+              <div className={`px-3 py-1 rounded-full text-xs font-medium ${stats.wilcoxon.significant
+                ? 'bg-green-100 text-green-800'
+                : 'bg-orange-100 text-orange-800'
+                }`}>
                 {stats.wilcoxon.significant ? '✅ Significant (p<0.05)' : '❌ Not Significant'}
               </div>
             </div>
@@ -509,10 +506,10 @@ const AblationStudySection = ({ ablation }: { ablation: any }) => {
     { name: 'α=0.3', risk: ablation.static_alphas?.['0.3']?.risk_score || 0, type: 'static' as const },
     { name: 'α=0.5', risk: ablation.static_alphas?.['0.5']?.risk_score || 0, type: 'static' as const },
     { name: 'α=0.7', risk: ablation.static_alphas?.['0.7']?.risk_score || 0, type: 'static' as const },
-    { 
-      name: `EA (α=${ablation.ea_optimized?.alpha?.toFixed(2) || 'N/A'})`, 
-      risk: ablation.ea_optimized?.risk_score || 0, 
-      type: 'ea' as const 
+    {
+      name: `EA (α=${ablation.ea_optimized?.alpha?.toFixed(2) || 'N/A'})`,
+      risk: ablation.ea_optimized?.risk_score || 0,
+      type: 'ea' as const
     }
   ]
 
@@ -523,7 +520,7 @@ const AblationStudySection = ({ ablation }: { ablation: any }) => {
       <h2 className="text-2xl font-bold text-emerald-900 flex items-center gap-3">
         🧪 Ablation Study: Alpha Evolution Impact
       </h2>
-      
+
       <ResponsiveContainer width="100%" height={350}>
         <BarChart data={ablationData}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -542,7 +539,7 @@ const AblationStudySection = ({ ablation }: { ablation: any }) => {
         <div className="bg-white p-5 rounded-xl border">
           <h4 className="font-semibold mb-3">Static Alpha Results</h4>
           <div className="space-y-2">
-            {['0.3', '0.5', '0.7'].map(alpha => 
+            {['0.3', '0.5', '0.7'].map(alpha =>
               ablation.static_alphas?.[alpha] && (
                 <div key={alpha} className="flex justify-between">
                   <span>α={alpha}</span>
@@ -583,7 +580,7 @@ const CrossDatasetSection = ({ crossData, hasCifar }: { crossData: any; hasCifar
       <h2 className="text-2xl font-bold text-purple-900 flex items-center gap-3">
         🌐 Cross-Dataset Generalization
       </h2>
-      
+
       <div className="grid md:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-xl border shadow-sm">
           <h4 className="font-semibold mb-4">MNIST → CIFAR Transfer</h4>
@@ -683,7 +680,7 @@ const ResultPage = () => {
   const exportPdf = useCallback(async () => {
     try {
       setExporting(true)
-      const res = await fetch(`/api/export/pdf/${id}`)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_INFERENCE_API_URL}/export/pdf/${id}`)
       if (!res.ok) throw new Error()
 
       const blob = await res.blob()
@@ -712,7 +709,7 @@ const ResultPage = () => {
   } else if (eaRaw && "MNIST" in eaRaw) {
     eaData = eaRaw.MNIST
   }
-  
+
   const ablationData = doc?.data?.ablation_study
   const statsData = doc?.data?.statistical_tests
   const crossData = doc?.data?.cross_dataset
@@ -781,211 +778,209 @@ const ResultPage = () => {
       ? chartData
       : chartData.filter((m) => m.model === selectedModel)
 
-/* ================= RENDER ================= */
-return (
-  <div className="mx-auto max-w-7xl p-8 space-y-10">
-    {/* HEADER */}
-    <div className="flex justify-between items-center">
-      <h1 className="text-2xl font-semibold">Evaluation Results</h1>
-      <div className="flex gap-3">
-        {hasCifar && (
+  /* ================= RENDER ================= */
+  return (
+    <div className="mx-auto max-w-7xl p-8 space-y-10">
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold">Evaluation Results</h1>
+        <div className="flex gap-3">
+          {hasCifar && (
+            <button
+              onClick={() => router.push(`/compare/${id}`)}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition"
+            >
+              Compare MNIST vs CIFAR
+            </button>
+          )}
           <button
-            onClick={() => router.push(`/compare/${id}`)}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition"
+            onClick={exportPdf}
+            disabled={exporting}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-blue-700 transition"
           >
-            Compare MNIST vs CIFAR
+            {exporting ? "Exporting…" : "Export PDF"}
           </button>
-        )}
-        <button
-          onClick={exportPdf}
-          disabled={exporting}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-blue-700 transition"
-        >
-          {exporting ? "Exporting…" : "Export PDF"}
-        </button>
+        </div>
       </div>
-    </div>
 
-    {/* NEW RESEARCH SECTIONS */}
-    <StatisticalSignificanceSection stats={statsData} />
-    {ablationData && <AblationStudySection ablation={ablationData} />}
-    {crossData && hasCifar && <CrossDatasetSection crossData={crossData} hasCifar={hasCifar} />}
+      {/* NEW RESEARCH SECTIONS */}
+      <StatisticalSignificanceSection stats={statsData} />
+      {ablationData && <AblationStudySection ablation={ablationData} />}
+      {crossData && hasCifar && <CrossDatasetSection crossData={crossData} hasCifar={hasCifar} />}
 
-    {/* EXISTING EA GRAPHS */}
-    {eaData && (
-      <>
-        <AlphaEvolutionGraph eaData={eaData} />
-        <FitnessEvolutionGraph eaData={eaData} />
-        <RiskImprovementGraph eaData={eaData} />
-      </>
-    )}
+      {/* EXISTING EA GRAPHS */}
+      {eaData && (
+        <>
+          <AlphaEvolutionGraph eaData={eaData} />
+          <FitnessEvolutionGraph eaData={eaData} />
+          <RiskImprovementGraph eaData={eaData} />
+        </>
+      )}
 
-    {/* SUMMARY CARDS */}
-    <div className="grid md:grid-cols-4 gap-4">
-      <SummaryCard title="Safest" model={safestModel} />
-      <SummaryCard title="Balanced" model={balancedModel} />
-      <SummaryCard title="Highest Accuracy" model={highestConfidenceModel} />
-      <SummaryCard title="Fastest Safe" model={fastestSafeModel} />
+      {/* SUMMARY CARDS */}
+      <div className="grid md:grid-cols-4 gap-4">
+        <SummaryCard title="Safest" model={safestModel} />
+        <SummaryCard title="Balanced" model={balancedModel} />
+        <SummaryCard title="Highest Accuracy" model={highestConfidenceModel} />
+        <SummaryCard title="Fastest Safe" model={fastestSafeModel} />
+        {eaBestModel && (
+          <div className="border-2 border-purple-400 rounded-xl p-4 bg-purple-50 shadow-sm space-y-2">
+            <p className="text-sm text-purple-700 font-medium">
+              🧬 Evolution Optimization Summary
+            </p>
+            <p className="font-semibold text-purple-900 text-base">
+              Final Selected Model: {eaBestModel}
+            </p>
+            <div className="text-xs text-purple-800 space-y-1 mt-2">
+              <p>Total Generations: {eaData?.generations_used}</p>
+              <p>
+                Initial Alpha:{" "}
+                {eaData?.history?.alpha?.length
+                  ? eaData.history.alpha[0].toFixed(4)
+                  : "N/A"}
+              </p>
+              <p>
+                Final Alpha:{" "}
+                {eaData?.alpha !== undefined
+                  ? eaData.alpha.toFixed(4)
+                  : "N/A"}
+              </p>
+              {eaData?.best_generation !== undefined && (
+                <p>Best Found At Generation: {eaData.best_generation}</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* EA VS HEURISTIC COMPARISON */}
       {eaBestModel && (
-        <div className="border-2 border-purple-400 rounded-xl p-4 bg-purple-50 shadow-sm space-y-2">
-          <p className="text-sm text-purple-700 font-medium">
-            🧬 Evolution Optimization Summary
-          </p>
-          <p className="font-semibold text-purple-900 text-base">
-            Final Selected Model: {eaBestModel}
-          </p>
-          <div className="text-xs text-purple-800 space-y-1 mt-2">
-            <p>Total Generations: {eaData?.generations_used}</p>
-            <p>
-              Initial Alpha:{" "}
-              {eaData?.history?.alpha?.length
-                ? eaData.history.alpha[0].toFixed(4)
-                : "N/A"}
-            </p>
-            <p>
-              Final Alpha:{" "}
-              {eaData?.alpha !== undefined
-                ? eaData.alpha.toFixed(4)
-                : "N/A"}
-            </p>
-            {eaData?.best_generation !== undefined && (
-              <p>Best Found At Generation: {eaData.best_generation}</p>
-            )}
+        <div className="bg-gray-50 border rounded-xl p-6 space-y-4">
+          <h3 className="font-semibold text-lg">🧠 Evolution vs Heuristic Selection</h3>
+          <div className="grid md:grid-cols-2 gap-6 text-sm">
+            <div className="border rounded-lg p-4 bg-white shadow-sm">
+              <p className="font-medium text-gray-700 mb-2">Heuristic Best (Balanced)</p>
+              <p>Model: <span className="font-semibold">{balancedModel?.model}</span></p>
+              <p>Risk: {balancedModel?.risk_score?.toFixed(4)}</p>
+              <p>Accuracy: {balancedModel?.confidence_percent?.toFixed(2)}%</p>
+              <p>Latency: {balancedModel?.latency_ms?.toFixed(3)} ms</p>
+            </div>
+            <div className="border-2 border-purple-400 rounded-lg p-4 bg-purple-50 shadow-sm">
+              <p className="font-medium text-purple-800 mb-2">Evolution Optimized</p>
+              <p>Model: <span className="font-semibold">{eaBestModel}</span></p>
+              <p>Converged Generation: {eaGeneration}</p>
+              <p>Initial Alpha: {initialAlpha?.toFixed(4)}</p>
+              <p>Final Alpha: {finalAlpha?.toFixed(4)}</p>
+              <p>Total Generations: {totalGenerations}</p>
+              {chartData.find(m => m.model === eaBestModel) && (
+                <>
+                  <p>Risk: {chartData.find(m => m.model === eaBestModel)?.risk_score?.toFixed(4)}</p>
+                  <p>Accuracy: {chartData.find(m => m.model === eaBestModel)?.confidence_percent?.toFixed(2)}%</p>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            Evolution dynamically adjusted FAR/FRR weighting (alpha) to minimize composite risk rather than relying on static metric prioritization.
           </div>
         </div>
       )}
-    </div>
 
-    {/* EA VS HEURISTIC COMPARISON */}
-    {eaBestModel && (
-      <div className="bg-gray-50 border rounded-xl p-6 space-y-4">
-        <h3 className="font-semibold text-lg">🧠 Evolution vs Heuristic Selection</h3>
-        <div className="grid md:grid-cols-2 gap-6 text-sm">
-          <div className="border rounded-lg p-4 bg-white shadow-sm">
-            <p className="font-medium text-gray-700 mb-2">Heuristic Best (Balanced)</p>
-            <p>Model: <span className="font-semibold">{balancedModel?.model}</span></p>
-            <p>Risk: {balancedModel?.risk_score?.toFixed(4)}</p>
-            <p>Accuracy: {balancedModel?.confidence_percent?.toFixed(2)}%</p>
-            <p>Latency: {balancedModel?.latency_ms?.toFixed(3)} ms</p>
-          </div>
-          <div className="border-2 border-purple-400 rounded-lg p-4 bg-purple-50 shadow-sm">
-            <p className="font-medium text-purple-800 mb-2">Evolution Optimized</p>
-            <p>Model: <span className="font-semibold">{eaBestModel}</span></p>
-            <p>Converged Generation: {eaGeneration}</p>
-            <p>Initial Alpha: {initialAlpha?.toFixed(4)}</p>
-            <p>Final Alpha: {finalAlpha?.toFixed(4)}</p>
-            <p>Total Generations: {totalGenerations}</p>
-            {chartData.find(m => m.model === eaBestModel) && (
-              <>
-                <p>Risk: {chartData.find(m => m.model === eaBestModel)?.risk_score?.toFixed(4)}</p>
-                <p>Accuracy: {chartData.find(m => m.model === eaBestModel)?.confidence_percent?.toFixed(2)}%</p>
-              </>
+      {/* MODEL SELECTOR */}
+      <select
+        value={selectedModel}
+        onChange={(e) => setSelectedModel(e.target.value)}
+        className="border rounded px-3 py-2 w-fit bg-white"
+      >
+        <option value="ALL">All Models</option>
+        {MODEL_ORDER.map((m) => (
+          <option key={m}>{m}</option>
+        ))}
+      </select>
+
+      {/* MAIN CHARTS */}
+      {selectedModel === "ALL" && <ChartSection data={chartData} selectedModel="ALL" />}
+      {selectedModel === "ALL" && <ParetoGraph data={chartData} eaBestModel={eaBestModel} />}
+
+      {/* MODEL DETAIL CARDS */}
+      {visibleModels.map((m) => (
+        <div
+          key={m.model}
+          className={`border rounded-xl p-6 space-y-2 transition-all duration-200 hover:shadow-md ${eaBestModel === m.model
+            ? "border-purple-400 shadow-md bg-purple-50/50 ring-2 ring-purple-200"
+            : "hover:border-gray-300"
+            }`}
+        >
+          <h3 className="font-semibold text-lg">{m.model}</h3>
+          <div className="flex gap-2 flex-wrap">
+            {getBadges(m.model).map((b) => (
+              <span key={b} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                {b}
+              </span>
+            ))}
+            {eaBestModel === m.model && (
+              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-semibold">
+                🧬 EA Selected
+              </span>
             )}
           </div>
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <MetricRow label="Accuracy" value={`${m.confidence_percent.toFixed(2)}%`} />
+            <MetricRow label="Latency" value={`${m.latency_ms.toFixed(3)} ms`} />
+            <MetricRow label="Risk Score" value={m.risk_score.toFixed(4)} />
+          </div>
         </div>
-        <div className="text-xs text-gray-500">
-          Evolution dynamically adjusted FAR/FRR weighting (alpha) to minimize composite risk rather than relying on static metric prioritization.
-        </div>
-      </div>
-    )}
-
-    {/* MODEL SELECTOR */}
-    <select
-      value={selectedModel}
-      onChange={(e) => setSelectedModel(e.target.value)}
-      className="border rounded px-3 py-2 w-fit bg-white"
-    >
-      <option value="ALL">All Models</option>
-      {MODEL_ORDER.map((m) => (
-        <option key={m}>{m}</option>
       ))}
-    </select>
 
-    {/* MAIN CHARTS */}
-    {selectedModel === "ALL" && <ChartSection data={chartData} selectedModel="ALL" />}
-    {selectedModel === "ALL" && <ParetoGraph data={chartData} eaBestModel={eaBestModel} />}
+      {/* CONFUSION MATRICES */}
+      {selectedModel === "ALL" &&
+        chartData.map((m) => {
+          const isOpen = openMatrices[m.model]
 
-    {/* MODEL DETAIL CARDS */}
-    {visibleModels.map((m) => (
-      <div
-        key={m.model}
-        className={`border rounded-xl p-6 space-y-2 transition-all duration-200 hover:shadow-md ${
-          eaBestModel === m.model 
-            ? "border-purple-400 shadow-md bg-purple-50/50 ring-2 ring-purple-200" 
-            : "hover:border-gray-300"
-        }`}
-      >
-        <h3 className="font-semibold text-lg">{m.model}</h3>
-        <div className="flex gap-2 flex-wrap">
-          {getBadges(m.model).map((b) => (
-            <span key={b} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-              {b}
-            </span>
-          ))}
-          {eaBestModel === m.model && (
-            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-semibold">
-              🧬 EA Selected
-            </span>
-          )}
-        </div>
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <MetricRow label="Accuracy" value={`${m.confidence_percent.toFixed(2)}%`} />
-          <MetricRow label="Latency" value={`${m.latency_ms.toFixed(3)} ms`} />
-          <MetricRow label="Risk Score" value={m.risk_score.toFixed(4)} />
-        </div>
-      </div>
-    ))}
-
-    {/* CONFUSION MATRICES */}
-    {selectedModel === "ALL" &&
-      chartData.map((m) => {
-        const isOpen = openMatrices[m.model]
-
-        return (
-          <div
-            key={m.model}
-            className="border rounded-xl p-5 bg-white shadow-sm transition-all duration-200 hover:shadow-md"
-          >
-            {/* Header */}
-            <div className="flex justify-between items-center">
-              <h4 className="font-semibold text-base">
-                {m.model} — Confusion Matrix
-              </h4>
-              <button
-                onClick={() => toggleMatrix(m.model)}
-                className="text-sm px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 transition text-gray-700 font-medium"
-              >
-                {isOpen ? "▼ Hide Matrix" : "▶ Show Matrix"}
-              </button>
-            </div>
-
-            {/* Animated Expand Section */}
+          return (
             <div
-              className={`grid transition-all duration-500 ease-in-out overflow-hidden ${
-                isOpen
+              key={m.model}
+              className="border rounded-xl p-5 bg-white shadow-sm transition-all duration-200 hover:shadow-md"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-center">
+                <h4 className="font-semibold text-base">
+                  {m.model} — Confusion Matrix
+                </h4>
+                <button
+                  onClick={() => toggleMatrix(m.model)}
+                  className="text-sm px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 transition text-gray-700 font-medium"
+                >
+                  {isOpen ? "▼ Hide Matrix" : "▶ Show Matrix"}
+                </button>
+              </div>
+
+              {/* Animated Expand Section */}
+              <div
+                className={`grid transition-all duration-500 ease-in-out overflow-hidden ${isOpen
                   ? "grid-rows-[1fr] opacity-100 mt-4"
                   : "grid-rows-[0fr] opacity-0 h-0"
-              }`}
-            >
-              <div className="overflow-hidden">
-                {isOpen && (
-                  <ConfusionMatrix
-                    data={{
-                      model: m.model,
-                      matrix: mnistData[m.model]?.evaluation?.confusion_matrix ?? [],
-                      FAR: mnistData[m.model]?.evaluation?.FAR,
-                      FRR: mnistData[m.model]?.evaluation?.FRR,
-                      risk_score: m.risk_score,
-                    }}
-                  />
-                )}
+                  }`}
+              >
+                <div className="overflow-hidden">
+                  {isOpen && (
+                    <ConfusionMatrix
+                      data={{
+                        model: m.model,
+                        matrix: mnistData[m.model]?.evaluation?.confusion_matrix ?? [],
+                        FAR: mnistData[m.model]?.evaluation?.FAR,
+                        FRR: mnistData[m.model]?.evaluation?.FRR,
+                        risk_score: m.risk_score,
+                      }}
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )
-      })}
-  </div>
-)
+          )
+        })}
+    </div>
+  )
 }
 
 export default ResultPage
