@@ -956,7 +956,7 @@ from datetime import datetime
 import io
 
 
-@app.get("/export/pdf/{id}")
+@app.get("/pdf/{id}")
 def export_pdf_from_db(id: str):
     try:
         # =========================
