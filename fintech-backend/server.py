@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 from model_def import MNISTCNN
 from download_modes import ensure_models
+from export_routes import router as export_router
 import re
 import pytesseract
 import easyocr
@@ -70,6 +71,8 @@ torch.backends.cudnn.deterministic = True
 # APP
 # =========================
 app = FastAPI()
+
+app.include_router(export_router)
 # =========================
 # MONGO CONNECTION
 # =========================
