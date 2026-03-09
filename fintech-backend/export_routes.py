@@ -11,10 +11,13 @@ from reportlab.lib.styles import getSampleStyleSheet
 router = APIRouter()
 
 # =========================================================
-# MONGO
-# =========================================================
-client = MongoClient("mongodb://localhost:27017")
-db = client["fintech"]
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+MONGODB_URI = os.getenv("MONGODB_URI")
+client = MongoClient(MONGODB_URI)
+db = client["fintech-auth"]
 collection = db["model_results"]
 
 
@@ -35,7 +38,9 @@ def flatten_metrics(doc):
 
     rows = []
 
-    for model, data in doc.get("data", {}).items():
+    mnist_data = doc.get("data", {}).get("MNIST", {})
+
+    for model, data in mnist_data.items():
 
         # Handles normal + noisy dataset outputs
         confidence = data.get("confidence_percent") or data.get("confidence_mean")
