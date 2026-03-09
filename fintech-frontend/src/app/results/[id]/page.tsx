@@ -680,7 +680,7 @@ const ResultPage = () => {
   const exportPdf = useCallback(async () => {
     try {
       setExporting(true)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_INFERENCE_API_URL}/export/pdf/${id}`)
+      const res = await fetch(`/api/export/pdf/${id}`)
       if (!res.ok) throw new Error()
 
       const blob = await res.blob()
